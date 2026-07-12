@@ -815,6 +815,7 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         return t == RequirementType.COLLECT_LOOT
                 || t == RequirementType.COLLECT_BONUS_BOX
                 || t == RequirementType.COLLECT_BONUS_BOX_TYPE
+                || t == RequirementType.COLLECT
                 || t == RequirementType.CARGO;
     }
 

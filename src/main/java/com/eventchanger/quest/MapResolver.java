@@ -915,6 +915,7 @@ public class MapResolver {
         return t == Requirement.RequirementType.COLLECT_LOOT
                 || t == Requirement.RequirementType.COLLECT_BONUS_BOX
                 || t == Requirement.RequirementType.COLLECT_BONUS_BOX_TYPE
+                || t == Requirement.RequirementType.COLLECT
                 || t == Requirement.RequirementType.CARGO;
     }
 }

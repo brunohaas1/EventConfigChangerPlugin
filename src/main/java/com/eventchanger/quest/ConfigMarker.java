@@ -62,9 +62,19 @@ public class ConfigMarker {
         if (quest != null) {
             for (Requirement r : quest.getRequirements()) {
                 if (r.isCompleted()) continue;
-                GameMap rMap = mapResolver.resolveTargetMap(r);
+                // CORREÇÃO: usa resolveQuestTargetMap(quest, r) em vez de
+                // resolveTargetMap(r). O resolveTargetMap() resolve cada requirement
+                // isoladamente e, para minérios sem mapa no texto, cai no hardcode
+                // ore->mapa (ex: Terbium = 1-2), divergindo do targetMap real da quest
+                // (que veio de um requirement irmão "no mapa 1-3."). Isso fazia o
+                // requirement de minério ser descartado no filtro abaixo e a caixa
+                // nunca ser marcada. O resolveQuestTargetMap() aplica a mesma
+                // prioridade "mapa explícito de qualquer requirement da quest > hardcode"
+                // usada na navegação, então o rMap da Terbium também vira 1-3 e bate
+                // com targetMap.
+                GameMap rMap = mapResolver.resolveQuestTargetMap(quest, r);
                 reqMapCache.put(r, rMap);
-                if (rMap != null && rMap.getId() == targetMap.getId()) {
+                if (rMap == null || rMap.getId() != targetMap.getId()) {
                     reqState.append(r.getDescription()).append(r.getProgress()).append("|");
                 }
             }
@@ -318,6 +328,7 @@ public class ConfigMarker {
         return t == Requirement.RequirementType.COLLECT_LOOT
                 || t == Requirement.RequirementType.COLLECT_BONUS_BOX
                 || t == Requirement.RequirementType.COLLECT_BONUS_BOX_TYPE
+                || t == Requirement.RequirementType.COLLECT
                 || t == Requirement.RequirementType.CARGO;
     }
 
