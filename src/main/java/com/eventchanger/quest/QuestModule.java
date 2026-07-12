@@ -198,8 +198,14 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         }
 
         if (ctx.isSellingCargo) {
-            if (ctx.botAPI.getModule() != this) {
+            // CORREÇÃO DO PING-PONG: aplica cooldown simétrico na readoção do
+            // QuestModule (reentrando do LootCollectorModule), reaproveitando
+            // MODULE_SWITCH_STABILITY_MS. Sem isso, o tickLogic() rodando via
+            // Behavior podia se readotar imediatamente a cada tick.
+            if (ctx.botAPI.getModule() != this
+                    && now - ctx.lastQuestReclaimTime >= QuestContext.MODULE_SWITCH_STABILITY_MS) {
                 ctx.botAPI.setModule(this);
+                ctx.lastQuestReclaimTime = now;
             }
             sellingHandler.handleSellingCargo(now);
             return;
@@ -306,8 +312,15 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         }
 
         if (needsMapChange) {
-            if (ctx.botAPI.getModule() != this) {
+            // CORREÇÃO DO PING-PONG: aplica cooldown simétrico na readoção do
+            // QuestModule (reentrando do LootCollectorModule), reaproveitando
+            // MODULE_SWITCH_STABILITY_MS. Sem isso, uma leitura passageira/instável
+            // de ctx.targetMap fazia o setModule(this) disparar na hora, sem checar
+            // lastCollectorSwitchTime, causando o ping-pong com o LootCollector.
+            if (ctx.botAPI.getModule() != this
+                    && now - ctx.lastQuestReclaimTime >= QuestContext.MODULE_SWITCH_STABILITY_MS) {
                 ctx.botAPI.setModule(this);
+                ctx.lastQuestReclaimTime = now;
             }
             logger.logDebug("navigator recebeu: targetMap="
                     + (ctx.targetMap != null ? ctx.targetMap.getName() : "null")
@@ -322,8 +335,13 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
 
         // 6. If the current requirement is not a kill or loot type, switch back to QuestModule
         if (ctx.currentReq == null || (!isKillType(ctx.currentReq.getRequirementType()) && !isLootType(ctx.currentReq.getRequirementType()))) {
-            if (ctx.botAPI.getModule() != this) {
+            // CORREÇÃO DO PING-PONG: aplica cooldown simétrico na readoção do
+            // QuestModule (reentrando do LootCollectorModule), reaproveitando
+            // MODULE_SWITCH_STABILITY_MS.
+            if (ctx.botAPI.getModule() != this
+                    && now - ctx.lastQuestReclaimTime >= QuestContext.MODULE_SWITCH_STABILITY_MS) {
                 ctx.botAPI.setModule(this);
+                ctx.lastQuestReclaimTime = now;
             }
         }
 

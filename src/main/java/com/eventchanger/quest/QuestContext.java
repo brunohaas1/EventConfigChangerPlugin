@@ -313,6 +313,11 @@ public class QuestContext {
     public long lastNpcMatchSuccessTime = 0L;
     public long lastBoxMatchSuccessTime = 0L;
     public long lastCollectorSwitchTime = 0L;
+    // Timestamp (ms) da última vez que o QuestModule se readotou como módulo ativo
+    // (reentrando do LootCollectorModule). Usado para aplicar o mesmo cooldown
+    // simétrico de MODULE_SWITCH_STABILITY_MS na volta, evitando o ping-pong
+    // QuestModule <-> LootCollectorModule.
+    public long lastQuestReclaimTime = 0L;
     public static final long NPC_MATCH_CACHE_TTL_MS = 3500L;
     public static final long BOX_MATCH_CACHE_TTL_MS = 3500L;
     public static final long MODULE_SWITCH_STABILITY_MS = 1500L;

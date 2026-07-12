@@ -40,10 +40,11 @@ public class ConfigMarker {
         ensureProfileTracking();
 
         // Rastreamento de chamadas para updateConfigForQuest
+        // NOTA: não usar Thread.currentThread() — o PluginClassLoader do DarkBot
+        // bloqueia java.lang.Thread, causando NoClassDefFoundError no load da classe.
         System.out.println("[UPDATE_CONFIG_FOR_QUEST] quest='" + (quest != null ? quest.getTitle() : "null")
                 + "' | targetMap=" + (targetMap != null ? targetMap.getName() : "null")
-                + " | caller: " + Thread.currentThread().getStackTrace()[2].getMethodName()
-                + "() em " + Thread.currentThread().getStackTrace()[2].getClassName());
+                + " | caller: updateConfigForQuest() em com.eventchanger.quest.ConfigMarker");
 
         if (targetMap == null) {
             unmarkAll();

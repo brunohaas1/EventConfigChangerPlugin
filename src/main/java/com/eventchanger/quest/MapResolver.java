@@ -850,13 +850,9 @@ public class MapResolver {
 
         // [FLOW] 6) Detecção de sobrescrita de working_map
         Integer antes = setting.getValue();
-        String caller = "desconhecido";
-        try {
-            StackTraceElement[] st = Thread.currentThread().getStackTrace();
-            if (st.length > 3) {
-                caller = st[3].getMethodName() + "() em " + st[3].getClassName();
-            }
-        } catch (Throwable ignored) {}
+        // NOTA: não usar Thread.currentThread() — o PluginClassLoader do DarkBot
+        // bloqueia java.lang.Thread, causando NoClassDefFoundError no load da classe.
+        String caller = "updateBotWorkingMap() em com.eventchanger.quest.MapResolver";
         System.out.println("[FLOW] working_map SOBRESCRITA:"
                 + "\n  caller=" + caller
                 + "\n  de=" + (antes != null ? antes : "null")
