@@ -297,6 +297,19 @@ public class QuestContext {
             RequirementType.SPEND_AMMUNITION
     );
 
+    /**
+     * Verifica se um requirement é de coleta dos 3 minérios que só vêm de caixas
+     * from_ship (carga dropada por NPCs): Prometid, Duranium e Promerium.
+     * Usado para direcionar o bot ao mapa configurado e marcar todos os NPCs do mapa.
+     */
+    public static boolean isOreFromShipQuest(Requirement r) {
+        if (r == null) return false;
+        RequirementType t = r.getRequirementType();
+        if (t != RequirementType.COLLECT) return false;
+        String d = r.getDescription() != null ? r.getDescription().toLowerCase() : "";
+        return d.contains("prometid") || d.contains("duranium") || d.contains("promerium");
+    }
+
     // ---- Ore keys cache ----
     public Set<String> alwaysCollectOreKeysCache = null;
 

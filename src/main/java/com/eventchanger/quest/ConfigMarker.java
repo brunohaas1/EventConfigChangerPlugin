@@ -162,6 +162,15 @@ public class ConfigMarker {
             }
         }
 
+        // CORREÇÃO (minérios de carga): se a quest ativa pede Prometid/Duranium/
+        // Promerium (só vêm de caixas from_ship), marca TODOS os NPCs do mapa
+        // alvo para que o bot mate NPCs e colete a carga dropada. O requirement é
+        // do tipo COLLECT (não KILL), então o loop acima não marcaria nenhum NPC.
+        if (quest != null && targetMap != null && npcInfos != null
+                && hasOreFromShipRequirement(quest)) {
+            markAllNpcsOnMap(targetMap, npcInfos, desiredNpcKeys);
+        }
+
         // Keep secondary accepted quests marked only when enabled
         if (npcInfos != null && ctx.config != null && QuestConfig.QuestFlowConfig.KEEP_SECONDARY_QUESTS_MARKED) {
             markSecondaryAcceptedQuestNpcs(npcInfos, quest, desiredNpcKeys, targetMap, stateChanged);
@@ -330,6 +339,41 @@ public class ConfigMarker {
                 || t == Requirement.RequirementType.COLLECT_BONUS_BOX_TYPE
                 || t == Requirement.RequirementType.COLLECT
                 || t == Requirement.RequirementType.CARGO;
+    }
+
+    /**
+     * Verifica se a quest tem algum requirement de coleta dos 3 minérios de carga
+     * (Prometid/Duranium/Promerium), que só vêm de caixas from_ship.
+     */
+    private boolean hasOreFromShipRequirement(Quest quest) {
+        if (quest == null) return false;
+        for (Requirement r : quest.getRequirements()) {
+            if (r.isCompleted()) continue;
+            if (QuestContext.isOreFromShipQuest(r)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Marca TODOS os NPCs do mapa informado (targetMap) para serem caçados. Usado
+     * para as quests de minério de carga, onde o bot precisa matar NPCs e coletar
+     * a carga dropada (from_ship). O requirement é COLLECT, então o matching por
+     * descrição não marcaria nenhum NPC — aqui marcamos o mapa inteiro.
+     */
+    private void markAllNpcsOnMap(GameMap targetMap, Map<String, NpcInfo> npcInfos, Set<String> desiredNpcKeys) {
+        if (targetMap == null || npcInfos == null) return;
+        int marked = 0;
+        for (Map.Entry<String, NpcInfo> entry : npcInfos.entrySet()) {
+            NpcInfo info = entry.getValue();
+            if (info == null) continue;
+            Set<Integer> mapIds = info.getMapIds();
+            if (mapIds != null && mapIds.contains(targetMap.getId())) {
+                desiredNpcKeys.add(entry.getKey());
+                marked++;
+            }
+        }
+        logger.logDebug("[OreFromShip] marcados " + marked + " NPCs do mapa " + targetMap.getName()
+                + " para coleta de minerio de carga");
     }
 
     private void markSecondaryAcceptedQuestNpcs(Map<String, NpcInfo> npcInfos, Quest displayedQuest,

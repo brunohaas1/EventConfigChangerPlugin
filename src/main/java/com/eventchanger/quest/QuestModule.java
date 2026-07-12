@@ -470,11 +470,39 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
                     ctx.currentReq = null;
                     ctx.traceCurrentReqChange(oldReq368, null, "QuestModule", "makeDecision", 368);
                 } else {
-                    GameMap oldTarget2 = ctx.targetMap;
-                    ctx.targetMap = mapResolver.resolveQuestTargetMap(quest, ctx.currentReq);
-                    ctx.traceTargetMapChange(oldTarget2, ctx.targetMap, quest.getTitle(), 
-                        ctx.currentReq != null ? ctx.currentReq.getDescription() : "null",
-                        "makeDecision", "QuestModule", 371);
+                    // CORREÇÃO (minérios de carga): se a quest ativa pede Prometid/
+                    // Duranium/Promerium (só vêm de caixas from_ship), o bot deve ir
+                    // ao mapa configurado em ore_from_ship.collect_map e matar TODOS
+                    // os NPCs do mapa. Sobrescreve o targetMap pela escolha do usuário
+                    // em vez de tentar deduzir o mapa pela descrição (que não cita mapa).
+                    if (QuestContext.isOreFromShipQuest(ctx.currentReq) && ctx.config != null
+                            && ctx.config.oreFromShip != null
+                            && ctx.config.oreFromShip.collectMap != null
+                            && !ctx.config.oreFromShip.collectMap.trim().isEmpty()) {
+                        GameMap oldTarget2 = ctx.targetMap;
+                        GameMap oreMap = ctx.starSystemAPI.findMap(ctx.config.oreFromShip.collectMap.trim()).orElse(null);
+                        if (oreMap != null) {
+                            ctx.targetMap = oreMap;
+                            ctx.traceTargetMapChange(oldTarget2, ctx.targetMap, quest.getTitle(),
+                                ctx.currentReq != null ? ctx.currentReq.getDescription() : "null",
+                                "makeDecision", "QuestModule", 371);
+                            logger.logDebug("[OreFromShip] quest de minerio de carga -> usando mapa configurado: "
+                                    + oreMap.getName());
+                        } else {
+                            // Mapa configurado inválido: cai no resolve normal
+                            GameMap oldTarget3 = ctx.targetMap;
+                            ctx.targetMap = mapResolver.resolveQuestTargetMap(quest, ctx.currentReq);
+                            ctx.traceTargetMapChange(oldTarget3, ctx.targetMap, quest.getTitle(),
+                                ctx.currentReq != null ? ctx.currentReq.getDescription() : "null",
+                                "makeDecision", "QuestModule", 371);
+                        }
+                    } else {
+                        GameMap oldTarget2 = ctx.targetMap;
+                        ctx.targetMap = mapResolver.resolveQuestTargetMap(quest, ctx.currentReq);
+                        ctx.traceTargetMapChange(oldTarget2, ctx.targetMap, quest.getTitle(),
+                            ctx.currentReq != null ? ctx.currentReq.getDescription() : "null",
+                            "makeDecision", "QuestModule", 371);
+                    }
                     logger.logDebug("resolveTargetMap retornou: "
                             + (ctx.targetMap != null ? ctx.targetMap.getName() : "null")
                             + " | para req=" + (ctx.currentReq != null ? ctx.currentReq.getDescription() : "null"));

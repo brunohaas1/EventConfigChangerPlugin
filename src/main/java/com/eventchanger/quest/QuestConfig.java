@@ -1,8 +1,12 @@
 package com.eventchanger.quest;
 
 import eu.darkbot.api.config.annotations.Configuration;
+import eu.darkbot.api.config.annotations.Dropdown;
 import eu.darkbot.api.config.annotations.Number;
 import eu.darkbot.api.config.annotations.Option;
+
+import java.util.Arrays;
+import java.util.List;
 
 @Configuration("quest_module")
 public class QuestConfig {
@@ -101,6 +105,36 @@ public class QuestConfig {
 
         @Option("quest_module.loot.collect_cargo_boxes")
         public boolean collectCargoBoxes = true; // Coletar caixas de cargo
+    }
+
+    // =========================================================================
+    // Coleta dos 3 minérios de carga (Prometid / Duranium / Promerium)
+    //
+    // Esses minérios só vêm de caixas from_ship (carga dropada por NPCs), então o
+    // bot precisa ir a um mapa e matar TODOS os NPCs do mapa para coletá-los. O
+    // usuário escolhe o mapa numa lista (dropdown); o plugin navega para lá, marca
+    // todos os NPCs do mapa e, ao completar a missão, desmarca tudo.
+    // =========================================================================
+
+    @Option("quest_module.ore_from_ship")
+    public OreFromShipConfig oreFromShip = new OreFromShipConfig();
+
+    public static class OreFromShipConfig {
+
+        @Option("quest_module.ore_from_ship.collect_map")
+        @Dropdown(options = OreMapOptions.class)
+        public String collectMap = "1-2"; // Mapa onde coletar os 3 minérios (Prometid/Duranium/Promerium)
+    }
+
+    /**
+     * Lista de mapas disponíveis no dropdown de coleta dos minérios de carga.
+     * Cobre os mapas de baixo de cada facção (onde esses minérios costumam dropar).
+     */
+    public static class OreMapOptions implements Dropdown.Options<String> {
+        @Override
+        public List<String> options() {
+            return Arrays.asList("1-2", "2-2", "3-2", "1-3", "2-3", "3-3", "1-4", "2-4", "3-4", "1-5", "2-5", "3-5");
+        }
     }
 
     // =========================================================================
