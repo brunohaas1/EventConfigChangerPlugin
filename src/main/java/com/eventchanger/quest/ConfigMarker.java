@@ -169,6 +169,12 @@ public class ConfigMarker {
         if (quest != null && targetMap != null && npcInfos != null
                 && hasOreFromShipRequirement(quest)) {
             markAllNpcsOnMap(targetMap, npcInfos, desiredNpcKeys);
+            // Também marca as caixas de carga (from_ship) para o bot coletá-las
+            // ao matar os NPCs. Sem isso, o bot mata os NPCs mas não recolhe a
+            // carga dropada (que contém os minérios da missão).
+            if (boxInfos != null) {
+                markAllCargoBoxes(boxInfos, desiredBoxKeys);
+            }
         }
 
         // Keep secondary accepted quests marked only when enabled
@@ -374,6 +380,26 @@ public class ConfigMarker {
         }
         logger.logDebug("[OreFromShip] marcados " + marked + " NPCs do mapa " + targetMap.getName()
                 + " para coleta de minerio de carga");
+    }
+
+    /**
+     * Marca TODAS as caixas de carga (from_ship) para coleta. Usado junto com
+     * markAllNpcsOnMap nas quests de minério de carga: ao matar os NPCs, a carga
+     * dropada (que contém Prometid/Duranium/Promerium) precisa ser coletada.
+     * Respeita o toggle collectCargoBoxes da config de loot.
+     */
+    private void markAllCargoBoxes(Map<String, BoxInfo> boxInfos, Set<String> desiredBoxKeys) {
+        if (boxInfos == null) return;
+        int marked = 0;
+        for (Map.Entry<String, BoxInfo> entry : boxInfos.entrySet()) {
+            String boxName = entry.getKey() != null ? entry.getKey().toLowerCase() : "";
+            if (isBoxAllowedByLootConfig(boxName)
+                    && (boxName.contains("from_ship") || boxName.contains("cargo"))) {
+                desiredBoxKeys.add(entry.getKey());
+                marked++;
+            }
+        }
+        logger.logDebug("[OreFromShip] marcadas " + marked + " caixas de carga (from_ship) para coleta");
     }
 
     private void markSecondaryAcceptedQuestNpcs(Map<String, NpcInfo> npcInfos, Quest displayedQuest,
