@@ -301,13 +301,38 @@ public class QuestContext {
      * Verifica se um requirement é de coleta dos 3 minérios que só vêm de caixas
      * from_ship (carga dropada por NPCs): Prometid, Duranium e Promerium.
      * Usado para direcionar o bot ao mapa configurado e marcar todos os NPCs do mapa.
+     *
+     * Aceita qualquer tipo de coleta/carga (COLLECT, COLLECT_LOOT, CARGO, etc.),
+     * pois a missão de minério pode vir com tipos diferentes dependendo da versão
+     * do DarkBot. Não casa tipos de kill/PVP para evitar falso positivo.
      */
     public static boolean isOreFromShipQuest(Requirement r) {
         if (r == null) return false;
         RequirementType t = r.getRequirementType();
-        if (t != RequirementType.COLLECT) return false;
+        if (t != RequirementType.COLLECT
+                && t != RequirementType.COLLECT_LOOT
+                && t != RequirementType.COLLECT_BONUS_BOX
+                && t != RequirementType.COLLECT_BONUS_BOX_TYPE
+                && t != RequirementType.CARGO) {
+            return false;
+        }
         String d = r.getDescription() != null ? r.getDescription().toLowerCase() : "";
         return d.contains("prometid") || d.contains("duranium") || d.contains("promerium");
+    }
+
+    /**
+     * Verifica se a QUEST (qualquer requirement ativo) pede os 3 minérios de carga.
+     * Diferente de isOreFromShipQuest(ctx.currentReq), esta varredura considera TODOS
+     * os requirements da quest — necessário porque o requirement de minério pode não
+     * ser o selecionado como currentReq (a lista de prioridade não inclui COLLECT).
+     */
+    public static boolean questHasOreFromShipRequirement(QuestAPI.Quest quest) {
+        if (quest == null) return false;
+        for (Requirement r : quest.getRequirements()) {
+            if (r.isCompleted()) continue;
+            if (isOreFromShipQuest(r)) return true;
+        }
+        return false;
     }
 
     // ---- Ore keys cache ----

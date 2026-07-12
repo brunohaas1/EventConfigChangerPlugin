@@ -475,7 +475,7 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
                     // ao mapa configurado em ore_from_ship.collect_map e matar TODOS
                     // os NPCs do mapa. Sobrescreve o targetMap pela escolha do usuário
                     // em vez de tentar deduzir o mapa pela descrição (que não cita mapa).
-                    if (QuestContext.isOreFromShipQuest(ctx.currentReq) && ctx.config != null
+                    if (QuestContext.questHasOreFromShipRequirement(quest) && ctx.config != null
                             && ctx.config.oreFromShip != null
                             && ctx.config.oreFromShip.collectMap != null
                             && !ctx.config.oreFromShip.collectMap.trim().isEmpty()) {
