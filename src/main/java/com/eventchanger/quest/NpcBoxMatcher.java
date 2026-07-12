@@ -146,6 +146,13 @@ public class NpcBoxMatcher {
         if (questDesc.contains("bonus") && boxName.contains("bonus")) return true;
         if (questDesc.contains("cargo") && (boxName.contains("cargo") || boxName.contains("from_ship"))) return true;
         if (questDesc.contains("minerio") && (boxName.contains("cargo") || boxName.contains("from_ship"))) return true;
+        // CORREÇÃO: Prometid, Duranium e Promerium só podem ser coletados de caixas
+        // from_ship (carga dropada por NPCs), NÃO das caixas ore_*. Esses minérios
+        // não têm mapeamento ore_N, então sem esta regra a missão não marcava nada.
+        if ((questDesc.contains("prometid") || questDesc.contains("duranium") || questDesc.contains("promerium"))
+                && (boxName.contains("from_ship") || boxName.contains("cargo"))) {
+            return true;
+        }
         // CORREÇÃO: as caixas de minério no DarkBot têm chaves como ore_0, ore_1,
         // ore_2, ore_8 (Prometium, Endurium, Terbium, Palladium). A descrição da
         // missão diz "collect x prometium", então o contains() direto nunca casaria
