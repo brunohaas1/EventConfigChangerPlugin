@@ -313,7 +313,8 @@ public class QuestContext {
                 && t != RequirementType.COLLECT_LOOT
                 && t != RequirementType.COLLECT_BONUS_BOX
                 && t != RequirementType.COLLECT_BONUS_BOX_TYPE
-                && t != RequirementType.CARGO) {
+                && t != RequirementType.CARGO
+                && t != RequirementType.SELL_ORE) {
             return false;
         }
         String d = r.getDescription() != null ? r.getDescription().toLowerCase() : "";

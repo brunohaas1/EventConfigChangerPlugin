@@ -158,7 +158,7 @@ public class ConfigMarker {
                     // e casa o nome do minério, e pelo markAlwaysCollectOres (já
                     // condicionado à missão pedir aquele minério). Assim o minério
                     // só é marcado quando a missão realmente exige.
-                } else if (isLootType(type) && boxInfos != null) {
+                } else if ((isLootType(type) || type == Requirement.RequirementType.SELL_ORE) && boxInfos != null) {
                     String desc = r.getDescription();
                     String cleanBoxName = ctx.normalizedDescCache.get(desc);
                     if (cleanBoxName == null) {

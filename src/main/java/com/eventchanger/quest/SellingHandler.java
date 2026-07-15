@@ -193,8 +193,18 @@ public class SellingHandler {
         }
 
         int amount = ctx.oreAPI.getAmount(ore);
-        if (amount <= 0) {
-            ctx.currentAction = "[Venda] Sem " + ore.name() + " para vender. Coletando...";
+        double remainingGoal = req.getGoal() - req.getProgress();
+        
+        // Só vai vender se:
+        // 1) O que temos a bordo é suficiente para completar a quest (amount >= remainingGoal)
+        // 2) Ou o compartimento de carga está cheio/quase cheio (cargo >= maxCargo - 20)
+        // 3) Ou coletamos uma quantia razoável para vender de uma vez (ex: >= 50 unidades)
+        boolean cargoFull = ctx.statsAPI.getMaxCargo() > 0 && ctx.statsAPI.getCargo() >= ctx.statsAPI.getMaxCargo() - 20;
+        boolean hasEnough = amount >= remainingGoal;
+        boolean hasReasonableAmount = amount >= 50;
+
+        if (amount <= 0 || (!hasEnough && !cargoFull && !hasReasonableAmount)) {
+            ctx.currentAction = "[Venda] Coletando " + ore.name() + " (" + amount + "/" + (int)remainingGoal + " a bordo)...";
             if (ctx.config.autoCollectLoot) {
                 ctx.botAPI.setModule(ctx.defaultLootCollectorModule);
             }
