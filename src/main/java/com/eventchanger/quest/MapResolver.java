@@ -209,7 +209,7 @@ public class MapResolver {
         //    Mantidas como rede de segurança para quando o nome do NPC não casa
         //    com o banco (ex: "boss kristallon" sem entrada exata). As regras de
         //    ore (prometium/duranium/osmium) também ficam aqui e continuam úteis.
-        GameMap byTextRules = resolveMapFromNormalizedText(normalized, true);
+        GameMap byTextRules = resolveMapFromNormalizedText(normalized, reqDesc, true);
         if (byTextRules != null) {
             return byTextRules;
         }
@@ -361,7 +361,7 @@ public class MapResolver {
     public GameMap resolveMapFromText(String text) {
         if (text == null || text.isEmpty()) return null;
         String normalized = MissionMapLoader.normalize(text);
-        return resolveMapFromNormalizedText(normalized, false);
+        return resolveMapFromNormalizedText(normalized, text, false);
     }
 
     /**
@@ -531,7 +531,7 @@ public class MapResolver {
         return null;
     }
 
-    private GameMap resolveMapFromNormalizedText(String normalized, boolean enforceBlacklist) {
+    private GameMap resolveMapFromNormalizedText(String normalized, String rawReq, boolean enforceBlacklist) {
         if (normalized == null || normalized.isEmpty()) return null;
 
         // 1. Direct Ore-to-Map resolution
@@ -549,7 +549,7 @@ public class MapResolver {
         }
 
         // 2. NPC hardcoded rules
-        GameMap hardcoded = getHardcodedNpcMap(normalized);
+        GameMap hardcoded = getHardcodedNpcMap(normalized, rawReq);
         if (hardcoded != null && (!enforceBlacklist || !isMapBlacklisted(hardcoded))) {
             return hardcoded;
         }
@@ -557,7 +557,18 @@ public class MapResolver {
         return null;
     }
 
-    private GameMap getHardcodedNpcMap(String cleanReq) {
+    private GameMap getHardcodedNpcMap(String cleanReq, String rawReq) {
+        // Regra especial para StreuneR / Boss StreuneR (deve ir para o mapa X-8)
+        if (cleanReq.contains("streuner")) {
+            boolean isStreunerR = rawReq != null && (rawReq.contains("StreuneR") || rawReq.contains("StreunerR") || rawReq.toLowerCase().contains("streuner-r") || rawReq.toLowerCase().contains("streuner r"));
+            if (isStreunerR) {
+                if (cleanReq.contains("boss")) {
+                    return getCompanyMap("1-8", "2-8", "3-8");
+                }
+                return getCompanyMap("1-8", "2-8", "3-8");
+            }
+        }
+
         if (cleanReq.contains("uber")) {
             if (cleanReq.contains("interceptor") || cleanReq.contains("barracuda") ||
                 cleanReq.contains("saboteur") || cleanReq.contains("annihilator")) {
