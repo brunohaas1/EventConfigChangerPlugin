@@ -95,6 +95,15 @@ public class NpcBoxMatcher {
         if (normNpc.isEmpty() || normDesc.isEmpty()) return false;
         if (matchesCustomAlias(normNpc, normDesc)) return true;
 
+        // Regra especial para diferenciar Streuner de StreuneR / Boss Streuner de Boss StreuneR
+        if (normNpc.contains("streuner")) {
+            boolean npcIsStreunerR = npcName.contains("StreuneR") || npcName.contains("StreunerR") || npcName.toLowerCase().contains("streuner-r") || npcName.toLowerCase().contains("streuner r");
+            boolean questIsStreunerR = questDesc.contains("StreuneR") || questDesc.contains("StreunerR") || questDesc.toLowerCase().contains("streuner-r") || questDesc.toLowerCase().contains("streuner r");
+            if (npcIsStreunerR != questIsStreunerR) {
+                return false;
+            }
+        }
+
         // Remove common prefix/suffix symbols from NPC name (e.g. -=[, ]=-, ..::, ::..)
         normNpc = normNpc.replaceAll("^[ -=\\.:\\*]+|[ -=\\.:\\*]+$", "").trim();
 
