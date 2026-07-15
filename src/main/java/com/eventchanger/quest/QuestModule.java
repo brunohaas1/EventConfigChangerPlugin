@@ -355,12 +355,9 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
 
         // Re-adopt QuestModule if we are in LootCollectorModule but an enemy player is nearby for PVP quest
         if (ctx.currentReq != null && isPvpType(ctx.currentReq.getRequirementType()) && ctx.botAPI.getModule() != this) {
-            if (now - ctx.lastQuestReclaimTime >= QuestContext.MODULE_SWITCH_STABILITY_MS) {
-                if (hasEnemyPlayerNearby()) {
-                    ctx.botAPI.setModule(this);
-                    ctx.lastQuestReclaimTime = now;
-                    // System.out.println("[PVP] Jogador inimigo detectado! Retomando modulo QuestModule para combate.");
-                }
+            if (hasEnemyPlayerNearby()) {
+                ctx.botAPI.setModule(this);
+                ctx.lastQuestReclaimTime = now;
             }
         }
 
@@ -797,15 +794,9 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
                     ctx.movementAPI.moveTo(target);
                     ctx.currentAction = "[PVP] Aproximando de jogador: " + target.getEntityInfo().getUsername();
                 } else {
-                    // Ataca de fato usando a AttackAPI (setTarget + tryLockAndAttack).
-                    // O LootCollectorModule so ataca NPCs marcados, entao para PVP
-                    // precisamos mirar/atacar o player manualmente aqui.
                     ctx.setShipMode("attack");
                     ctx.attackAPI.setTarget(target);
-                    ctx.attackAPI.tryLockAndAttack();
-                    if (ctx.config != null && ctx.config.pvp.pvpAmmoKey != null) {
-                        ctx.coreApi.keyboardClick(ctx.config.pvp.pvpAmmoKey);
-                    }
+                    tryLockAndAttackPvp(target, ctx.config != null ? ctx.config.pvp.pvpAmmoKey : null);
                     ctx.currentAction = "[PVP] Atacando jogador: " + target.getEntityInfo().getUsername();
                 }
                 return;
@@ -923,5 +914,25 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         configMarker.unmarkAll();
         // Reseta o estado de diárias para reprocessar na próxima execução
         questGiverInteraction.resetDailyMissionsState();
+    }
+
+    private void tryLockAndAttackPvp(Player target, Character ammoKey) {
+        if (target == null) return;
+        
+        // 1. Mira no alvo
+        if (!ctx.attackAPI.isLocked()) {
+            ctx.attackAPI.tryLockTarget();
+            return;
+        }
+        
+        // 2. Alvo mirado: seleciona a munição de PVP via teclado
+        if (ammoKey != null) {
+            ctx.coreApi.keyboardClick(ammoKey);
+        }
+        
+        // 3. Ataca
+        if (!ctx.attackAPI.isAttacking()) {
+            ctx.heroAPI.triggerLaserAttack();
+        }
     }
 }
