@@ -317,6 +317,9 @@ public class QuestContext {
                 && t != RequirementType.SELL_ORE) {
             return false;
         }
+        if (t == RequirementType.SELL_ORE) {
+            return true;
+        }
         String d = r.getDescription() != null ? r.getDescription().toLowerCase() : "";
         return d.contains("prometid") || d.contains("duranium") || d.contains("promerium");
     }
