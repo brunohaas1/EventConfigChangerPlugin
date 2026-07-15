@@ -37,10 +37,13 @@ public class QuestPanel {
         rootPanel.setBorder(new EmptyBorder(4, 4, 4, 4));
 
         JPanel headerPanel = new JPanel(new GridLayout(3, 1, 2, 2));
+        headerPanel.setOpaque(false);
         lblQuestTitle    = makeLabel("Nenhuma quest ativa", Font.BOLD, 12);
+        lblQuestTitle.setForeground(Color.WHITE);
         lblQuestStatus   = makeLabel("--", Font.PLAIN, 11);
+        lblQuestStatus.setForeground(new Color(200, 200, 200));
         lblCurrentAction = makeLabel("--", Font.ITALIC, 11);
-        lblCurrentAction.setForeground(new Color(60, 120, 200));
+        lblCurrentAction.setForeground(new Color(100, 180, 255));
         headerPanel.add(lblQuestTitle);
         headerPanel.add(lblQuestStatus);
         headerPanel.add(lblCurrentAction);
@@ -48,14 +51,19 @@ public class QuestPanel {
 
         requirementsPanel = new JPanel();
         requirementsPanel.setLayout(new BoxLayout(requirementsPanel, BoxLayout.Y_AXIS));
-        requirementsPanel.setBorder(new TitledBorder("Objetivos"));
+        requirementsPanel.setOpaque(false);
+        requirementsPanel.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createEtchedBorder(), "Objetivos", TitledBorder.DEFAULT_JUSTIFICATION, TitledBorder.DEFAULT_POSITION,
+                null, Color.WHITE));
         JScrollPane scroll = new JScrollPane(requirementsPanel);
         scroll.setPreferredSize(new Dimension(300, 120));
         scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
         rootPanel.add(scroll, BorderLayout.CENTER);
 
         lblRewards = makeLabel("", Font.PLAIN, 10);
-        lblRewards.setForeground(new Color(180, 130, 0));
+        lblRewards.setForeground(new Color(255, 190, 60));
         lblRewards.setBorder(new EmptyBorder(2, 0, 0, 0));
         rootPanel.add(lblRewards, BorderLayout.SOUTH);
     }
@@ -86,10 +94,10 @@ public class QuestPanel {
 
         lblQuestTitle.setText(quest.getTitle());
         if (quest.isCompleted()) {
-            lblQuestStatus.setForeground(new Color(0, 150, 0));
+            lblQuestStatus.setForeground(new Color(100, 220, 100));
             lblQuestStatus.setText("COMPLETA!");
         } else {
-            lblQuestStatus.setForeground(Color.DARK_GRAY);
+            lblQuestStatus.setForeground(new Color(200, 200, 200));
             String mapInfo = (ctx.targetMap != null) ? " | Navegando -> " + ctx.targetMap.getName() : "";
             lblQuestStatus.setText("Em andamento..." + mapInfo);
         }
@@ -108,48 +116,19 @@ public class QuestPanel {
                 String typePrefix = getRequirementTypePrefix(req.getRequirementType());
                 String descText = (req.isCompleted() ? "[OK] " : "") + typePrefix + " " + req.getDescription();
                 JLabel desc = makeLabel(descText.trim(), req.isCompleted() ? Font.BOLD : Font.PLAIN, 10);
-                desc.setForeground(req.isCompleted() ? new Color(0, 130, 0) : Color.DARK_GRAY);
+                desc.setForeground(req.isCompleted() ? new Color(100, 220, 100) : Color.WHITE);
                 desc.setMinimumSize(new Dimension(160, 16));
 
                 JProgressBar bar = new JProgressBar(0, 100);
                 bar.setValue((int) Math.min(100, req.getProgressPercentage()));
                 bar.setStringPainted(true);
                 bar.setString(formatProgress(req.getProgress(), req.getGoal()));
-                bar.setForeground(req.isCompleted() ? new Color(0, 150, 0) : new Color(60, 120, 200));
+                bar.setForeground(req.isCompleted() ? new Color(100, 220, 100) : new Color(60, 120, 200));
                 bar.setPreferredSize(new Dimension(90, 16));
                 bar.setMinimumSize(new Dimension(90, 16));
 
                 row.add(desc, BorderLayout.CENTER);
                 row.add(bar, BorderLayout.EAST);
-                requirementsPanel.add(row);
-            }
-        }
-
-        refreshMarkedNpcCounts();
-
-        if (!ctx.cachedMarkedNpcCounts.isEmpty()) {
-            JLabel sep = makeLabel("NPCs no mapa:", Font.BOLD, 10);
-            sep.setBorder(new EmptyBorder(4, 0, 0, 0));
-            sep.setForeground(new Color(80, 80, 80));
-            sep.setMinimumSize(new Dimension(280, 18));
-            requirementsPanel.add(sep);
-
-            for (Map.Entry<String, Integer> entry : ctx.cachedMarkedNpcCounts.entrySet()) {
-                JPanel row = new JPanel(new BorderLayout(4, 0));
-                row.setOpaque(false);
-                row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
-                row.setMinimumSize(new Dimension(280, 18));
-
-                JLabel name = makeLabel("- " + entry.getKey(), Font.PLAIN, 10);
-                name.setForeground(new Color(60, 60, 60));
-                name.setMinimumSize(new Dimension(160, 16));
-
-                JLabel count = makeLabel(String.valueOf(entry.getValue()), Font.BOLD, 10);
-                count.setForeground(entry.getValue() > 0 ? new Color(0, 130, 0) : new Color(120, 120, 120));
-                count.setMinimumSize(new Dimension(30, 16));
-
-                row.add(name, BorderLayout.CENTER);
-                row.add(count, BorderLayout.EAST);
                 requirementsPanel.add(row);
             }
         }
