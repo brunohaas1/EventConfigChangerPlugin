@@ -197,6 +197,9 @@ public class QuestConfig {
 
         @Option("quest_module.pvp.pvp_map")
         public String pvpMap = "4-4"; // Mapa de destino para quests PVP (ex: 4-4, 5-3, 5-4). Deixe vazio para usar o mapa atual.
+
+        @Option("quest_module.pvp.pvp_ammo_key")
+        public Character pvpAmmoKey = Character.valueOf('4'); // Tecla de munição para PVP (ex: 4)
     }
 
     // =========================================================================

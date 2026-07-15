@@ -108,20 +108,20 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
     private void tickLogic() {
         if (ctx.config == null) return;
         // [QUEST_STATE] Ponto 9: INÍCIO do tick
-        try {
-            Quest qIni = ctx.questAPI.getDisplayedQuest();
-            GameMap hmIni = ctx.heroAPI.getMap();
-            Integer wmIni = mapResolver.getCurrentWorkingMapId();
-            System.out.println("==================== TICK INÍCIO ===================="
-                    + "\n  Quest=" + (qIni != null ? qIni.getTitle() : "null")
-                    + "\n  Requirement=" + (ctx.currentReq != null ? ctx.currentReq.getDescription() : "null")
-                    + "\n  targetMap=" + (ctx.targetMap != null ? ctx.targetMap.getName() : "null")
-                    + "\n  working_map=" + (wmIni != null ? wmIni : "null")
-                    + "\n  heroMap=" + (hmIni != null ? hmIni.getName() : "null")
-                    + "\n  module=" + (ctx.botAPI.getModule() != null ? ctx.botAPI.getModule().getClass().getSimpleName() : "null"));
-        } catch (Throwable t) {
-            System.err.println("[QUEST_STATE] erro no log de inicio de tick: " + t);
-        }
+        // try {
+        //     Quest qIni = ctx.questAPI.getDisplayedQuest();
+        //     GameMap hmIni = ctx.heroAPI.getMap();
+        //     Integer wmIni = mapResolver.getCurrentWorkingMapId();
+        //     System.out.println("==================== TICK INÍCIO ===================="
+        //             + "\n  Quest=" + (qIni != null ? qIni.getTitle() : "null")
+        //             + "\n  Requirement=" + (ctx.currentReq != null ? ctx.currentReq.getDescription() : "null")
+        //             + "\n  targetMap=" + (ctx.targetMap != null ? ctx.targetMap.getName() : "null")
+        //             + "\n  working_map=" + (wmIni != null ? wmIni : "null")
+        //             + "\n  heroMap=" + (hmIni != null ? hmIni.getName() : "null")
+        //             + "\n  module=" + (ctx.botAPI.getModule() != null ? ctx.botAPI.getModule().getClass().getSimpleName() : "null"));
+        // } catch (Throwable t) {
+        //     System.err.println("[QUEST_STATE] erro no log de inicio de tick: " + t);
+        // }
         npcBoxMatcher.refreshCustomAliasesIfNeeded();
 
         if (ctx.questGui == null) {
@@ -184,9 +184,14 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         // Deliver completed quests instantly via backpage
         deliverCompletedQuests(now);
 
-        // 2. Auto-sell when cargo hold is full
+        // 2. Auto-sell when cargo hold is full (prevented during cargo ore quests or timed quests)
         if (ctx.config.loot.autoSellWhenFull && ctx.statsAPI.getCargo() >= ctx.statsAPI.getMaxCargo() && ctx.statsAPI.getMaxCargo() > 0) {
-            ctx.isSellingCargo = true;
+            Quest active = ctx.questAPI.getDisplayedQuest();
+            boolean isOreQuest = QuestContext.questHasOreFromShipRequirement(active);
+            boolean isTimedQuest = QuestContext.questHasTimer(active);
+            if (!isOreQuest && !isTimedQuest) {
+                ctx.isSellingCargo = true;
+            }
         }
         // Safely clear selling state when cargo drops below threshold, OR if space becomes available (e.g. after refinement)
         if (ctx.isSellingCargo && ctx.statsAPI.getMaxCargo() > 0 &&
@@ -296,13 +301,13 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         if (ctx.targetMap != null) {
             mapResolver.updateBotWorkingMap(ctx.targetMap);
             // [FLOW] 2) Após updateBotWorkingMap(targetMap)
-            Integer wmGravado = mapResolver.getCurrentWorkingMapId();
-            Integer wmLido = mapResolver.getCurrentWorkingMapId();
-            System.out.println("[FLOW] updateBotWorkingMap:"
-                    + "\n  gravado=" + (ctx.targetMap != null ? ctx.targetMap.getId() : "null")
-                    + "\n  general.working_map=" + (wmGravado != null ? wmGravado : "null")
-                    + "\n  ctx.targetMap=" + (ctx.targetMap != null ? ctx.targetMap.getName() : "null")
-                    + "\n  igual_ao_gravado=" + (ctx.targetMap != null && wmLido != null && wmLido == ctx.targetMap.getId()));
+            // Integer wmGravado = mapResolver.getCurrentWorkingMapId();
+            // Integer wmLido = mapResolver.getCurrentWorkingMapId();
+            // System.out.println("[FLOW] updateBotWorkingMap:"
+            //         + "\n  gravado=" + (ctx.targetMap != null ? ctx.targetMap.getId() : "null")
+            //         + "\n  general.working_map=" + (wmGravado != null ? wmGravado : "null")
+            //         + "\n  ctx.targetMap=" + (ctx.targetMap != null ? ctx.targetMap.getName() : "null")
+            //         + "\n  igual_ao_gravado=" + (ctx.targetMap != null && wmLido != null && wmLido == ctx.targetMap.getId()));
         } else if (ctx.currentReq != null) {
             if (currentMap != null) {
                 mapResolver.updateBotWorkingMap(currentMap);
@@ -345,57 +350,68 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
             }
         }
 
+        // Re-adopt QuestModule if we are in LootCollectorModule but an enemy player is nearby for PVP quest
+        if (ctx.currentReq != null && isPvpType(ctx.currentReq.getRequirementType()) && ctx.botAPI.getModule() != this) {
+            if (now - ctx.lastQuestReclaimTime >= QuestContext.MODULE_SWITCH_STABILITY_MS) {
+                if (hasEnemyPlayerNearby()) {
+                    ctx.botAPI.setModule(this);
+                    ctx.lastQuestReclaimTime = now;
+                    // System.out.println("[PVP] Jogador inimigo detectado! Retomando modulo QuestModule para combate.");
+                }
+            }
+        }
+
         // 7. Action Execution (if QuestModule is the active module)
         if (ctx.botAPI.getModule() == this) {
             executeAction(now);
         }
 
         // [FLOW-TICK] Resumo consolidado do estado ao final de cada tick
-        GameMap heroMapTick = ctx.heroAPI.getMap();
-        Integer wmTick = mapResolver.getCurrentWorkingMapId();
-        System.out.println("[FLOW-TICK]"
-                + "\n  targetMap=" + (ctx.targetMap != null ? ctx.targetMap.getName() : "null")
-                + "\n  working_map=" + (wmTick != null ? wmTick : "null")
-                + "\n  module=" + (ctx.botAPI.getModule() != null ? ctx.botAPI.getModule().getClass().getSimpleName() : "null")
-                + "\n  quest=" + (ctx.questAPI.getDisplayedQuest() != null ? ctx.questAPI.getDisplayedQuest().getTitle() : "null")
-                + "\n  currentReq=" + (ctx.currentReq != null ? ctx.currentReq.getDescription() : "null")
-                + "\n  heroMap=" + (heroMapTick != null ? heroMapTick.getName() : "null"));
+        // GameMap heroMapTick = ctx.heroAPI.getMap();
+        // Integer wmTick = mapResolver.getCurrentWorkingMapId();
+        // System.out.println("[FLOW-TICK]"
+        //         + "\n  targetMap=" + (ctx.targetMap != null ? ctx.targetMap.getName() : "null")
+        //         + "\n  working_map=" + (wmTick != null ? wmTick : "null")
+        //         + "\n  module=" + (ctx.botAPI.getModule() != null ? ctx.botAPI.getModule().getClass().getSimpleName() : "null")
+        //         + "\n  quest=" + (ctx.questAPI.getDisplayedQuest() != null ? ctx.questAPI.getDisplayedQuest().getTitle() : "null")
+        //         + "\n  currentReq=" + (ctx.currentReq != null ? ctx.currentReq.getDescription() : "null")
+        //         + "\n  heroMap=" + (heroMapTick != null ? heroMapTick.getName() : "null"));
 
         // [QUEST_STATE] Ponto 9: FIM do tick
-        try {
-            Quest qFim = ctx.questAPI.getDisplayedQuest();
-            GameMap hmFim = ctx.heroAPI.getMap();
-            Integer wmFim = mapResolver.getCurrentWorkingMapId();
-            System.out.println("==================== TICK FIM ===================="
-                    + "\n  Quest=" + (qFim != null ? qFim.getTitle() : "null")
-                    + "\n  Requirement=" + (ctx.currentReq != null ? ctx.currentReq.getDescription() : "null")
-                    + "\n  targetMap=" + (ctx.targetMap != null ? ctx.targetMap.getName() : "null")
-                    + "\n  working_map=" + (wmFim != null ? wmFim : "null")
-                    + "\n  heroMap=" + (hmFim != null ? hmFim.getName() : "null")
-                    + "\n  module=" + (ctx.botAPI.getModule() != null ? ctx.botAPI.getModule().getClass().getSimpleName() : "null"));
-        } catch (Throwable t) {
-            System.err.println("[QUEST_STATE] erro no log de fim de tick: " + t);
-        }
+        // try {
+        //     Quest qFim = ctx.questAPI.getDisplayedQuest();
+        //     GameMap hmFim = ctx.heroAPI.getMap();
+        //     Integer wmFim = mapResolver.getCurrentWorkingMapId();
+        //     System.out.println("==================== TICK FIM ===================="
+        //             + "\n  Quest=" + (qFim != null ? qFim.getTitle() : "null")
+        //             + "\n  Requirement=" + (ctx.currentReq != null ? ctx.currentReq.getDescription() : "null")
+        //             + "\n  targetMap=" + (ctx.targetMap != null ? ctx.targetMap.getName() : "null")
+        //             + "\n  working_map=" + (wmFim != null ? wmFim : "null")
+        //             + "\n  heroMap=" + (hmFim != null ? hmFim.getName() : "null")
+        //             + "\n  module=" + (ctx.botAPI.getModule() != null ? ctx.botAPI.getModule().getClass().getSimpleName() : "null"));
+        // } catch (Throwable t) {
+        //     System.err.println("[QUEST_STATE] erro no log de fim de tick: " + t);
+        // }
     }
 
     private void makeDecision(long now) {
         // [QUEST_STATE] Log de entrada (instrumentação p/ investigar regressão de perda de estado)
-        try {
-            Quest displayedQuest = ctx.questAPI.getDisplayedQuest();
-            QuestListItem selectedQuestInfo = ctx.questAPI.getSelectedQuestInfo();
-            Quest selectedQuest = ctx.questAPI.getSelectedQuest();
-            System.out.println("[QUEST_STATE] ENTRADA makeDecision"
-                    + "\n  displayedQuest=" + (displayedQuest != null ? displayedQuest.getTitle() : "null")
-                    + "\n  ctx.currentQuest=(inexistente - proxy=displayedQuest)"
-                    + "\n  ctx.currentReq=" + (ctx.currentReq != null ? ctx.currentReq.getDescription() : "null")
-                    + "\n  acceptedQuest=" + (selectedQuestInfo != null ? selectedQuestInfo.getTitle() : "null")
-                    + "\n  selectedQuest=" + (selectedQuest != null ? selectedQuest.getTitle() : "null")
-                    + "\n  questTitle=" + (displayedQuest != null ? displayedQuest.getTitle() : "null")
-                    + "\n  hashCode(quest)=" + (displayedQuest != null ? System.identityHashCode(displayedQuest) : "null")
-                    + "\n  ctx.targetMap=" + (ctx.targetMap != null ? ctx.targetMap.getName() : "null"));
-        } catch (Throwable t) {
-            System.err.println("[QUEST_STATE] erro no log de entrada: " + t);
-        }
+        // try {
+        //     Quest displayedQuest = ctx.questAPI.getDisplayedQuest();
+        //     QuestListItem selectedQuestInfo = ctx.questAPI.getSelectedQuestInfo();
+        //     Quest selectedQuest = ctx.questAPI.getSelectedQuest();
+        //     System.out.println("[QUEST_STATE] ENTRADA makeDecision"
+        //             + "\n  displayedQuest=" + (displayedQuest != null ? displayedQuest.getTitle() : "null")
+        //             + "\n  ctx.currentQuest=(inexistente - proxy=displayedQuest)"
+        //             + "\n  ctx.currentReq=" + (ctx.currentReq != null ? ctx.currentReq.getDescription() : "null")
+        //             + "\n  acceptedQuest=" + (selectedQuestInfo != null ? selectedQuestInfo.getTitle() : "null")
+        //             + "\n  selectedQuest=" + (selectedQuest != null ? selectedQuest.getTitle() : "null")
+        //             + "\n  questTitle=" + (displayedQuest != null ? displayedQuest.getTitle() : "null")
+        //             + "\n  hashCode(quest)=" + (displayedQuest != null ? System.identityHashCode(displayedQuest) : "null")
+        //             + "\n  ctx.targetMap=" + (ctx.targetMap != null ? ctx.targetMap.getName() : "null"));
+        // } catch (Throwable t) {
+        //     System.err.println("[QUEST_STATE] erro no log de entrada: " + t);
+        // }
 
         Quest quest = ctx.questAPI.getDisplayedQuest();
 
@@ -431,11 +447,11 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
             Requirement oldCurrentReq = ctx.currentReq;
             ctx.currentReq = findBestRequirement(quest);
             ctx.traceCurrentReqChange(oldCurrentReq, ctx.currentReq, "QuestModule", "makeDecision", 357);
-            System.out.println("[QUEST_STATE] ATRIB ctx.currentReq"
-                    + "\n  valor_antigo=" + (oldCurrentReq != null ? oldCurrentReq.getDescription() : "null")
-                    + "\n  valor_novo=" + (ctx.currentReq != null ? ctx.currentReq.getDescription() : "null")
-                    + "\n  origem=makeDecision() QuestModule (findBestRequirement)"
-                    + "\n  stack=" + "makeDecision:linha~" + (new Throwable().getStackTrace().length));
+            // System.out.println("[QUEST_STATE] ATRIB ctx.currentReq"
+            //         + "\n  valor_antigo=" + (oldCurrentReq != null ? oldCurrentReq.getDescription() : "null")
+            //         + "\n  valor_novo=" + (ctx.currentReq != null ? ctx.currentReq.getDescription() : "null")
+            //         + "\n  origem=makeDecision() QuestModule (findBestRequirement)"
+            //         + "\n  stack=" + "makeDecision:linha~" + (new Throwable().getStackTrace().length));
             if (ctx.currentReq != null) {
                 if (quest.getId() != ctx.lastQuestId) {
                     ctx.lastQuestId = quest.getId();
@@ -443,10 +459,10 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
                     ctx.lastProgressTime = now;
                     GameMap oldTarget = ctx.targetMap;
                     // [QUEST_STATE] Ponto 4: antes de atribuir ctx.targetMap = null
-                    System.out.println("[QUEST_STATE] ATRIB ctx.targetMap"
-                            + "\n  valor_antigo=" + (oldTarget != null ? oldTarget.getName() : "null")
-                            + "\n  valor_novo=null"
-                            + "\n  quem_alterou=makeDecision() (troca de quest id)");
+                    // System.out.println("[QUEST_STATE] ATRIB ctx.targetMap"
+                    //         + "\n  valor_antigo=" + (oldTarget != null ? oldTarget.getName() : "null")
+                    //         + "\n  valor_novo=null"
+                    //         + "\n  quem_alterou=makeDecision() (troca de quest id)");
                     ctx.targetMap = null;
                     ctx.traceTargetMapChange(oldTarget, null, quest.getTitle(), 
                         ctx.currentReq != null ? ctx.currentReq.getDescription() : "null",
@@ -508,14 +524,14 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
                             + " | para req=" + (ctx.currentReq != null ? ctx.currentReq.getDescription() : "null"));
 
                     // [FLOW] 1) Após calcular ctx.targetMap em makeDecision
-                    GameMap heroMapFlow = ctx.heroAPI.getMap();
-                    Integer wmFlow = mapResolver.getCurrentWorkingMapId();
-                    System.out.println("[FLOW] makeDecision:"
-                            + "\n  quest=" + (quest != null ? quest.getTitle() : "null")
-                            + "\n  currentReq=" + (ctx.currentReq != null ? ctx.currentReq.getDescription() : "null")
-                            + "\n  ctx.targetMap=" + (ctx.targetMap != null ? ctx.targetMap.getName() : "null")
-                            + "\n  heroMap=" + (heroMapFlow != null ? heroMapFlow.getName() : "null")
-                            + "\n  working_map_atual=" + (wmFlow != null ? wmFlow : "null"));
+                    // GameMap heroMapFlow = ctx.heroAPI.getMap();
+                    // Integer wmFlow = mapResolver.getCurrentWorkingMapId();
+                    // System.out.println("[FLOW] makeDecision:"
+                    //         + "\n  quest=" + (quest != null ? quest.getTitle() : "null")
+                    //         + "\n  currentReq=" + (ctx.currentReq != null ? ctx.currentReq.getDescription() : "null")
+                    //         + "\n  ctx.targetMap=" + (ctx.targetMap != null ? ctx.targetMap.getName() : "null")
+                    //         + "\n  heroMap=" + (heroMapFlow != null ? heroMapFlow.getName() : "null")
+                    //         + "\n  working_map_atual=" + (wmFlow != null ? wmFlow : "null"));
                 }
 
                 if (!shouldAcceptMore) {
@@ -551,10 +567,10 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         // No accepted quests left
         // [QUEST_STATE] Ponto 4: antes de atribuir ctx.targetMap = null (fim do makeDecision)
         GameMap oldTarget3 = ctx.targetMap;
-        System.out.println("[QUEST_STATE] ATRIB ctx.targetMap"
-                + "\n  valor_antigo=" + (oldTarget3 != null ? oldTarget3.getName() : "null")
-                + "\n  valor_novo=null"
-                + "\n  quem_alterou=makeDecision() (fim, 'Nenhum requirement'/sem quest ativa)");
+        // System.out.println("[QUEST_STATE] ATRIB ctx.targetMap"
+        //         + "\n  valor_antigo=" + (oldTarget3 != null ? oldTarget3.getName() : "null")
+        //         + "\n  valor_novo=null"
+        //         + "\n  quem_alterou=makeDecision() (fim, 'Nenhum requirement'/sem quest ativa)");
         Requirement oldReqFim = ctx.currentReq;
         ctx.currentReq = null;
         ctx.traceCurrentReqChange(oldReqFim, null, "QuestModule", "makeDecision", 408);
@@ -648,15 +664,15 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
                 && type != RequirementType.SPEND_AMMUNITION
                 && !isPvpType(type)) {
             // [FLOW] 3) Antes de delegar para o LootCollectorModule
-            GameMap heroMapFlow3 = ctx.heroAPI.getMap();
-            Integer wmFlow3 = mapResolver.getCurrentWorkingMapId();
-            System.out.println("[FLOW] setModule(LootCollector):"
-                    + "\n  module_atual=" + (ctx.botAPI.getModule() != null ? ctx.botAPI.getModule().getClass().getSimpleName() : "null")
-                    + "\n  module_destino=LootCollectorModule"
-                    + "\n  ctx.targetMap=" + (ctx.targetMap != null ? ctx.targetMap.getName() : "null")
-                    + "\n  working_map=" + (wmFlow3 != null ? wmFlow3 : "null")
-                    + "\n  heroMap=" + (heroMapFlow3 != null ? heroMapFlow3.getName() : "null")
-                    + "\n  quest=" + (ctx.questAPI.getDisplayedQuest() != null ? ctx.questAPI.getDisplayedQuest().getTitle() : "null"));
+            // GameMap heroMapFlow3 = ctx.heroAPI.getMap();
+            // Integer wmFlow3 = mapResolver.getCurrentWorkingMapId();
+            // System.out.println("[FLOW] setModule(LootCollector):"
+            //         + "\n  module_atual=" + (ctx.botAPI.getModule() != null ? ctx.botAPI.getModule().getClass().getSimpleName() : "null")
+            //         + "\n  module_destino=LootCollectorModule"
+            //         + "\n  ctx.targetMap=" + (ctx.targetMap != null ? ctx.targetMap.getName() : "null")
+            //         + "\n  working_map=" + (wmFlow3 != null ? wmFlow3 : "null")
+            //         + "\n  heroMap=" + (heroMapFlow3 != null ? heroMapFlow3.getName() : "null")
+            //         + "\n  quest=" + (ctx.questAPI.getDisplayedQuest() != null ? ctx.questAPI.getDisplayedQuest().getTitle() : "null"));
             if (ctx.botAPI.getModule() != ctx.defaultLootCollectorModule
                     && now - ctx.lastCollectorSwitchTime >= QuestContext.MODULE_SWITCH_STABILITY_MS) {
                 ctx.botAPI.setModule(ctx.defaultLootCollectorModule);
@@ -751,14 +767,19 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
             if (target != null) {
                 double dist = target.distanceTo(ctx.heroAPI);
                 if (dist > 500) {
+                    ctx.setShipMode("roam");
                     ctx.movementAPI.moveTo(target);
                     ctx.currentAction = "[PVP] Aproximando de jogador: " + target.getEntityInfo().getUsername();
                 } else {
                     // Ataca de fato usando a AttackAPI (setTarget + tryLockAndAttack).
                     // O LootCollectorModule so ataca NPCs marcados, entao para PVP
                     // precisamos mirar/atacar o player manualmente aqui.
+                    ctx.setShipMode("attack");
                     ctx.attackAPI.setTarget(target);
                     ctx.attackAPI.tryLockAndAttack();
+                    if (ctx.config != null && ctx.config.pvp.pvpAmmoKey != null) {
+                        ctx.coreApi.keyboardClick(ctx.config.pvp.pvpAmmoKey);
+                    }
                     ctx.currentAction = "[PVP] Atacando jogador: " + target.getEntityInfo().getUsername();
                 }
                 return;
@@ -768,6 +789,15 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         // No players found: marca que está procurando
         // O movimento fica a cargo do LootCollectorModule se estiver ativo
         ctx.currentAction = "[PVP] Procurando jogadores...";
+
+        // DELEGAÇÃO: Se não há players por perto, delega para o LootCollectorModule
+        // para que a nave se mova e colete caixas pelo mapa enquanto procura inimigos.
+        if (ctx.botAPI.getModule() != ctx.defaultLootCollectorModule
+                && now - ctx.lastCollectorSwitchTime >= QuestContext.MODULE_SWITCH_STABILITY_MS) {
+            ctx.botAPI.setModule(ctx.defaultLootCollectorModule);
+            ctx.lastCollectorSwitchTime = now;
+            // System.out.println("[PVP] Nenhum inimigo por perto. Delegando para LootCollectorModule para patrulhar/roaming.");
+        }
     }
 
     private void deliverCompletedQuests(long now) {
@@ -802,10 +832,10 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         java.util.List<? extends Requirement> reqs = quest.getRequirements();
         if (reqs == null || reqs.isEmpty()) {
             // [QUEST_STATE] Ponto 6: getCurrentRequirement retornou null (sem requirements)
-            System.out.println("[QUEST_STATE] getCurrentRequirement(retorno)"
-                    + "\n  retorno=null"
-                    + "\n  descricao=(lista vazia/nula)"
-                    + "\n  tipo=(indisponivel)");
+            // System.out.println("[QUEST_STATE] getCurrentRequirement(retorno)"
+            //         + "\n  retorno=null"
+            //         + "\n  descricao=(lista vazia/nula)"
+            //         + "\n  tipo=(indisponivel)");
             return null;
         }
         for (RequirementType preferred : QuestContext.PRIORITY) {
@@ -813,10 +843,10 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
                 if (req.isEnabled() && !req.isCompleted()
                         && req.getRequirementType() == preferred) {
                     // [QUEST_STATE] Ponto 6: getCurrentRequirement retornou requirement
-                    System.out.println("[QUEST_STATE] getCurrentRequirement(retorno)"
-                            + "\n  retorno=" + (req.getDescription() != null ? req.getDescription() : "null")
-                            + "\n  descricao=" + (req.getDescription() != null ? req.getDescription() : "null")
-                            + "\n  tipo=" + req.getRequirementType());
+                    // System.out.println("[QUEST_STATE] getCurrentRequirement(retorno)"
+                    //         + "\n  retorno=" + (req.getDescription() != null ? req.getDescription() : "null")
+                    //         + "\n  descricao=" + (req.getDescription() != null ? req.getDescription() : "null")
+                    //         + "\n  tipo=" + req.getRequirementType());
                     return req;
                 }
             }
@@ -825,10 +855,10 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
                 .filter(r -> r.isEnabled() && !r.isCompleted())
                 .findFirst().orElse(null);
         // [QUEST_STATE] Ponto 6: getCurrentRequirement retornou requirement (fallback)
-        System.out.println("[QUEST_STATE] getCurrentRequirement(retorno)"
-                + "\n  retorno=" + (fallback != null ? fallback.getDescription() : "null")
-                + "\n  descricao=" + (fallback != null ? fallback.getDescription() : "null")
-                + "\n  tipo=" + (fallback != null ? fallback.getRequirementType() : "null"));
+        // System.out.println("[QUEST_STATE] getCurrentRequirement(retorno)"
+        //         + "\n  retorno=" + (fallback != null ? fallback.getDescription() : "null")
+        //         + "\n  descricao=" + (fallback != null ? fallback.getDescription() : "null")
+        //         + "\n  tipo=" + (fallback != null ? fallback.getRequirementType() : "null"));
         return fallback;
     }
 
@@ -847,12 +877,25 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
                 || t == RequirementType.CARGO;
     }
 
+    private boolean hasEnemyPlayerNearby() {
+        java.util.Collection<? extends eu.darkbot.api.game.entities.Player> players = ctx.entitiesAPI.getPlayers();
+        if (players == null || players.isEmpty()) return false;
+        for (eu.darkbot.api.game.entities.Player p : players) {
+            if (p == null || p.getEntityInfo() == null) continue;
+            if (!p.getEntityInfo().isEnemy()) continue;
+            if (p.distanceTo(ctx.heroAPI) < 1000) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public void onTickStopped() {
-        // Do NOT unmark here: stopping the bot (or switching profiles, which the bot
-        // treats as a stop) must not clear marks made for the active quest. The marks
-        // are recomputed from scratch on the next run via the incremental diff, and
-        // only cleared when a quest actually ends (targetMap == null path).
-        configMarker.resetTrackingState();
+        // Quando o bot é parado, limpamos todas as marcações de NPC/box temporárias 
+        // para não deixar resíduos na configuração e evitar que fiquem marcados para sempre.
+        configMarker.unmarkAll();
+        // Reseta o estado de diárias para reprocessar na próxima execução
+        questGiverInteraction.resetDailyMissionsState();
     }
 }

@@ -335,6 +335,23 @@ public class QuestContext {
         return false;
     }
 
+    /**
+     * Verifica se a QUEST (qualquer requirement ativo) possui temporizador ou limite de tempo.
+     * Usado para evitar distrações de tempo crítico, como voar para vender carga.
+     */
+    public static boolean questHasTimer(QuestAPI.Quest quest) {
+        if (quest == null) return false;
+        for (Requirement r : quest.getRequirements()) {
+            if (r.isCompleted()) continue;
+            RequirementType t = r.getRequirementType();
+            if (t == RequirementType.TIMER || t == RequirementType.COUNTDOWN
+                    || t == RequirementType.REAL_TIME_HASTE || t == RequirementType.REAL_TIME_DATE_HASTE) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // ---- Ore keys cache ----
     public Set<String> alwaysCollectOreKeysCache = null;
 
@@ -366,6 +383,14 @@ public class QuestContext {
     public String lastCustomAliasesRaw = "";
     public final Map<String, Set<String>> customNpcAliases = new HashMap<>();
     public Integer lastTargetMapId = null;
+
+    // ---- Otimizações de performance e controle de estados ----
+    public long lastConfigUpdateRunTime = 0L;
+    public long lastModeSwitchTime = 0L;
+    public String lastConfigMode = ""; // "roam" ou "attack"
+    public final Map<String, String> normalizedDescCache = new HashMap<>();
+    public long lastPvpScanTime = 0L;
+    public long lastAutoRefineTime = 0L;
 
     // ---- External mission maps (EN / PT / PT overrides) ----
     public final Map<String, String> externalMissionMap = new HashMap<>();
@@ -420,6 +445,36 @@ public class QuestContext {
                     + " | Main.API==" + (com.github.manolo8.darkbot.Main.API != null));
         } catch (Throwable t) {
             System.err.println("[QuestModule][CLICK-CHAIN] Erro ao logar identidade das instancias: " + t);
+        }
+    }
+
+    public void setShipMode(String mode) {
+        if (mode == null) return;
+        long now = System.currentTimeMillis();
+
+        // Anti-flicker: se o modo desejado mudou em relação ao último solicitado,
+        // impõe um cooldown de 2.5s antes de aceitar a mudança.
+        if (!mode.equals(lastConfigMode)) {
+            if (now - lastModeSwitchTime < 2500) {
+                return;
+            }
+            lastConfigMode = mode;
+            lastModeSwitchTime = now;
+        }
+
+        com.github.manolo8.darkbot.config.Config botConfig = com.github.manolo8.darkbot.Main.INSTANCE.config;
+        if (botConfig == null) return;
+
+        if ("roam".equals(mode)) {
+            if (!heroAPI.isInMode(botConfig.GENERAL.ROAM)) {
+                heroAPI.setRoamMode();
+                System.out.println("[CONFIG] Enviado setRoamMode() pois nao estava em modo roam");
+            }
+        } else if ("attack".equals(mode)) {
+            if (!heroAPI.isInMode(botConfig.GENERAL.OFFENSIVE)) {
+                heroAPI.setAttackMode(null);
+                System.out.println("[CONFIG] Enviado setAttackMode() pois nao estava em modo offensive");
+            }
         }
     }
 

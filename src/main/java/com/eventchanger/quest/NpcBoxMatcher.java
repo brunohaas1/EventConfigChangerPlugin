@@ -143,6 +143,7 @@ public class NpcBoxMatcher {
     }
 
     public boolean matchesBoxName(String boxName, String questDesc) {
+        if (boxName == null || questDesc == null || questDesc.trim().isEmpty()) return false;
         if (questDesc.contains("bonus") && boxName.contains("bonus")) return true;
         if (questDesc.contains("cargo") && (boxName.contains("cargo") || boxName.contains("from_ship"))) return true;
         if (questDesc.contains("minerio") && (boxName.contains("cargo") || boxName.contains("from_ship"))) return true;

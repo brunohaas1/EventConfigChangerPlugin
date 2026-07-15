@@ -152,6 +152,7 @@ public class SellingHandler {
             logger.logDebug("Estacao encontrada: " + bestStation.getClass().getSimpleName() + " dist=" + (int)dist + " Refinery=" + (bestStation instanceof Station.Refinery));
 
             if (dist > 200) {
+                ctx.setShipMode("roam");
                 ctx.movementAPI.moveTo(bestStation);
                 ctx.currentAction = "[Venda] Movendo ate estacao (dist: " + (int) dist + ")";
                 return;
@@ -174,6 +175,7 @@ public class SellingHandler {
         } else {
             // No station found yet - fly to center to discover entities
             ctx.currentAction = "[Venda] Procurando estacao... voando ao centro";
+            ctx.setShipMode("roam");
             ctx.movementAPI.moveTo(10000, 6200);
         }
     }
@@ -225,6 +227,7 @@ public class SellingHandler {
                     Station s = station.get();
                     double dist = s.distanceTo(ctx.heroAPI);
                     if (dist > 200) {
+                        ctx.setShipMode("roam");
                         ctx.movementAPI.moveTo(s);
                         ctx.currentAction = "[Venda] Movendo ate a estacao base (dist: " + (int) dist + ")";
                     } else {
@@ -237,6 +240,7 @@ public class SellingHandler {
                     }
                 } else {
                     ctx.currentAction = "[Venda] Voando para o centro do mapa para descobrir estacao...";
+                    ctx.setShipMode("roam");
                     ctx.movementAPI.moveTo(10000, 6200);
                 }
             } else {

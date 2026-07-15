@@ -119,11 +119,27 @@ public class MapResolver {
             String objective = missionMapLoader.resolveQuestObjectiveText(
                     String.valueOf(activeQuest.getTitle()), false);
             if (objective != null && !objective.isEmpty()) {
-                GameMap objMap = extractMapFromDescription(objective);
-                if (objMap != null && !isMapBlacklisted(objMap)) {
-                    logger.logDebug("resolveTargetMap: mapa explicito extraido do OBJETIVO '"
-                            + objective + "' -> " + objMap.getName());
-                    return objMap;
+                // CORREÇÃO SEQUENCIAL: Em vez de extrair o mapa de todo o texto do objetivo
+                // (que pode conter mapas de outros requisitos futuros no mesmo texto),
+                // filtramos apenas a linha correspondente ao requisito atual (reqDesc).
+                String matchingLine = getMatchingObjectiveLine(objective, reqDesc);
+                if (matchingLine != null) {
+                    GameMap objMap = extractMapFromDescription(matchingLine);
+                    if (objMap != null && !isMapBlacklisted(objMap)) {
+                        logger.logDebug("resolveTargetMap: mapa explicito extraido da linha correspondente do OBJETIVO '"
+                                + matchingLine + "' -> " + objMap.getName());
+                        return objMap;
+                    }
+                } else {
+                    // Fallback se não casar linha específica, mas apenas se o objetivo for curto / mapa único
+                    if (!objective.contains("|")) {
+                        GameMap objMap = extractMapFromDescription(objective);
+                        if (objMap != null && !isMapBlacklisted(objMap)) {
+                            logger.logDebug("resolveTargetMap: mapa explicito extraido do OBJETIVO (sem linhas) '"
+                                    + objective + "' -> " + objMap.getName());
+                            return objMap;
+                        }
+                    }
                 }
             }
         }
@@ -170,6 +186,14 @@ public class MapResolver {
                             // no texto. Agora escolhemos o mapa MAIS PRÓXIMO / alcançável
                             // a partir do mapa atual (ver pickClosestNpcMap).
                             GameMap npcMap = pickClosestNpcMap(mapIds);
+                            // Guarda de segurança: Boss/Uber NPCs nunca nascem em 1-1 (map ID 1),
+                            // então se o banco de dados retornou 1-1 por falta de sufixo no config.json,
+                            // ignoramos e deixamos o fallback resolver.
+                            boolean isBossOrUber = npcName.toLowerCase().contains("boss") || npcName.toLowerCase().contains("uber");
+                            if (isBossOrUber && npcMap != null && npcMap.getId() == 1) {
+                                logger.logDebug("resolveTargetMap: ignorando mapa 1-1 do BD para Boss/Uber NPC '" + npcName + "'");
+                                continue;
+                            }
                             if (npcMap != null) {
                                 logger.logDebug("resolveTargetMap: mapa automatico (mais proximo) via BD para '"
                                         + npcName + "' -> " + npcMap.getName());
@@ -222,57 +246,71 @@ public class MapResolver {
      * nenhum requirement cita um mapa explicitamente.
      */
     public GameMap resolveQuestTargetMap(Quest quest, Requirement currentReq) {
-        // 1) Se o requirement atual já cita um mapa explícito, usa ele (comportamento anterior)
-        if (currentReq != null) {
-            String curDesc = currentReq.getDescription();
-            if (curDesc != null && !curDesc.isEmpty()) {
-                GameMap curExplicit = extractMapFromDescription(curDesc);
-                if (curExplicit != null && !isMapBlacklisted(curExplicit)) {
-                    return curExplicit;
-                }
+        if (currentReq == null) {
+            return null;
+        }
+
+        // 1) Se o requirement atual/ativo já cita um mapa explícito, usa ele.
+        String curDesc = currentReq.getDescription();
+        if (curDesc != null && !curDesc.isEmpty()) {
+            GameMap curExplicit = extractMapFromDescription(curDesc);
+            if (curExplicit != null && !isMapBlacklisted(curExplicit)) {
+                return curExplicit;
             }
         }
-        // 2) Senão, procura mapa explícito em QUALQUER outro requirement
-        //    não-completado da quest (quests de mapa único: o mapa citado em um
-        //    requirement vale p/ todos).
-        //    PRIORIDADE: mapas explícitos SEMPRE tem precedência sobre ore conhecido.
+
+        // 2) Procura mapa explícito em outros requisitos habilitados (ativos) e não completados
+        //    (ex: requisitos paralelos de mapa como "no mapa 1-4")
         if (quest != null) {
             for (Requirement r : quest.getRequirements()) {
-                if (r.isCompleted()) continue;
+                if (r.isCompleted() || !r.isEnabled()) continue;
                 String desc = r.getDescription();
                 if (desc == null || desc.isEmpty()) continue;
-                // 2a) mapa explícito citado no requirement
                 GameMap explicit = extractMapFromDescription(desc);
                 if (explicit != null && !isMapBlacklisted(explicit)) {
-                    logger.logDebug("resolveQuestTargetMap: usando mapa explicito do requirement '"
+                    logger.logDebug("resolveQuestTargetMap: usando mapa explicito do requisito ativo '"
                             + desc + "' -> " + explicit.getName()
-                            + " (currentReq='" + (currentReq != null ? currentReq.getDescription() : "null")
-                            + "' nao citava mapa)");
+                            + " para currentReq='" + currentReq.getDescription() + "'");
                     return explicit;
                 }
             }
         }
-        // 3) Procura ore conhecido SOMENTE em requirements de COLETA (prometium->1-2,
-        //    duranium->1-3, etc.). Esta verificação acontece SOMENTE se NENHUM
-        //    requirement citou um mapa explícito (passo 2).
-        if (quest != null) {
-            for (Requirement r : quest.getRequirements()) {
-                if (r.isCompleted()) continue;
-                if (!isLootType(r.getRequirementType())) continue;
-                String desc = r.getDescription();
-                if (desc == null || desc.isEmpty()) continue;
-                GameMap lootMap = resolveMapFromNormalizedText(MissionMapLoader.normalize(desc), false);
-                if (lootMap != null && !isMapBlacklisted(lootMap)) {
-                    logger.logDebug("resolveQuestTargetMap: usando mapa de coleta do requirement '"
-                            + desc + "' -> " + lootMap.getName()
-                            + " (currentReq='" + (currentReq != null ? currentReq.getDescription() : "null")
-                            + "' nao citava mapa)");
-                    return lootMap;
+
+        // 3) Caso contrário, resolver o mapa pelo NPC/ore do currentReq.
+        return resolveTargetMap(currentReq);
+    }
+
+    /**
+     * Filtra a linha do texto de objetivos da missão que melhor corresponde
+     * ao requisito que estamos tentando resolver, evitando extrair mapas de
+     * objetivos futuros/outros.
+     */
+    private String getMatchingObjectiveLine(String objectiveText, String reqDesc) {
+        if (objectiveText == null || reqDesc == null || objectiveText.isEmpty() || reqDesc.isEmpty()) {
+            return null;
+        }
+        String normalizedReq = MissionMapLoader.normalize(reqDesc).toLowerCase();
+        String[] reqWords = normalizedReq.split("\\s+");
+        java.util.List<String> keywords = new java.util.ArrayList<>();
+        for (String w : reqWords) {
+            if (w.length() > 3 && !w.equals("destroi") && !w.equals("recolhe") && !w.equals("destrua") && !w.equals("matar")) {
+                keywords.add(w);
+            }
+        }
+        if (keywords.isEmpty()) {
+            return null;
+        }
+
+        String[] lines = objectiveText.split("\\|");
+        for (String line : lines) {
+            String normalizedLine = MissionMapLoader.normalize(line).toLowerCase();
+            for (String kw : keywords) {
+                if (normalizedLine.contains(kw)) {
+                    return line;
                 }
             }
         }
-        // 3) Fallback: comportamento original (banco de NPCs / hardcoded / título / objetivo)
-        return resolveTargetMap(currentReq);
+        return null;
     }
 
     /**
@@ -542,6 +580,10 @@ public class MapResolver {
 
         // Map X-1 (Low maps)
         GameMap homeMap = resolveHomeMap();
+        // Boss / Uber specific maps (X-2 / X-4 etc.)
+        if (cleanReq.contains("boss streuner")) return getCompanyMap("1-2", "2-2", "3-2");
+        if (cleanReq.contains("uber streuner") || cleanReq.contains("uberstreuner")) return getCompanyMap("1-4", "2-4", "3-4");
+
         if (cleanReq.contains("streuner") && homeMap != null)    return ctx.starSystemAPI.findMap(homeMap.getName()).orElse(null);
 
         // Map X-2 / 1-2
@@ -735,6 +777,7 @@ public class MapResolver {
         }
         
         if (now - ctx.lastPortalJumpTime < QuestConfig.NavigationConfig.PORTAL_JUMP_COOLDOWN_MS) {
+            ctx.setShipMode("roam");
             ctx.currentAction = "[Nav] Aguardando mapa carregar... -> " + dest.getName();
             
             // LOG DETALHADO PARA DIAGNÓSTICO
@@ -813,6 +856,7 @@ public class MapResolver {
             
             ctx.currentAction = "[Nav] Pulando para: " + dest.getName() + "...";
         } else {
+            ctx.setShipMode("roam");
             ctx.movementAPI.moveTo(nextPortal);
         }
     }

@@ -24,6 +24,49 @@ import java.util.List;
 public class QuestGiverInteraction {
     private static final long ACCEPT_RETRY_DELAY_MS = 400L;
 
+    // --- Constantes e estado para prioridade de missões diárias ---
+    /**
+     * Índice da aba "Missões Diárias" no QuestGiver (0-indexed, da esquerda).
+     * Layout padrão: 0=Normal, 1=Diária, 2=Evento, 3=Clã, 4=Urgente.
+     */
+    private static final int DAILY_TAB_INDEX = 2;
+    /** Índice da aba normal (missões regulares). */
+    private static final int NORMAL_TAB_INDEX = 0;
+    /** Total de abas no QuestGiver. */
+    private static final int TOTAL_TABS = 5;
+
+    // Estados da máquina de processamento de diárias
+    private static final int DAILY_STATE_CHECK_TAB = 0;
+    private static final int DAILY_STATE_WAIT_TAB = 1;
+    private static final int DAILY_STATE_WAIT_LIST = 2;
+    private static final int DAILY_STATE_ACCEPT = 3;
+    private static final int DAILY_STATE_VERIFY_ACCEPT = 4;
+    private static final int DAILY_STATE_RETURN_TAB = 5;
+    private static final int DAILY_STATE_WAIT_RETURN = 6;
+    private static final int DAILY_STATE_DONE = 7;
+
+    /** Indica se as diárias já foram processadas neste ciclo de aceite. */
+    private boolean dailyMissionsProcessed = false;
+    /** Estado atual da máquina de processamento de diárias. */
+    private int dailyState = DAILY_STATE_CHECK_TAB;
+    /** Timestamp de quando mudamos de aba (para aguardar carregamento). */
+    private long dailyTabSwitchTime = 0L;
+    /** Linha atual da lista de diárias (para aceite sequencial). */
+    private int dailyAcceptRow = 0;
+    /** Quantidade de diárias aceitas neste ciclo. */
+    private int dailyAcceptedCount = 0;
+    /** ID da quest diária pendente de verificação de aceite. */
+    private int dailyPendingAcceptId = -1;
+    /** Título da quest diária pendente de verificação. */
+    private String dailyPendingAcceptTitle = "";
+    /** Timestamp de quando a verificação de aceite da diária deve ocorrer. */
+    private long dailyPendingVerifyTime = 0L;
+    /** Se o próximo passo na diária é "selecionar a linha" (true) ou "clicar aceitar" (false). */
+    private boolean dailyNeedSelect = false;
+    /** Contagem de falhas consecutivas ao aceitar diárias. */
+    private int dailyAcceptFailStreak = 0;
+    /** Máximo de falhas antes de desistir das diárias. */
+    private static final int MAX_DAILY_ACCEPT_FAILS = 6;
 
     private final QuestContext ctx;
     private final QuestLogger logger;
@@ -33,6 +76,321 @@ public class QuestGiverInteraction {
         this.ctx = ctx;
         this.logger = logger;
         this.mapResolver = mapResolver;
+    }
+
+    // ---------------------------------------------------------------------
+    // Prioridade de missões diárias
+    // ---------------------------------------------------------------------
+
+    /**
+     * Reseta o estado de processamento de diárias. Deve ser chamado quando:
+     * - A janela do QuestGiver fecha
+     * - O módulo é parado/reiniciado
+     * - O bot sai da base
+     */
+    public void resetDailyMissionsState() {
+        dailyMissionsProcessed = false;
+        dailyState = DAILY_STATE_CHECK_TAB;
+        dailyTabSwitchTime = 0L;
+        dailyAcceptRow = 0;
+        dailyAcceptedCount = 0;
+        dailyPendingAcceptId = -1;
+        dailyPendingAcceptTitle = "";
+        dailyPendingVerifyTime = 0L;
+        dailyNeedSelect = false;
+        dailyAcceptFailStreak = 0;
+    }
+
+    /** @return true se as diárias já foram processadas neste ciclo. */
+    public boolean isDailyMissionsProcessed() {
+        return dailyMissionsProcessed;
+    }
+
+    /**
+     * Clica numa aba específica do QuestGiver, usando as coordenadas exatas
+     * do DmPlugin nativo (QuestGiverMediator.changeTab):
+     *   getTabs() → DivContainer(initPosX+8, initPosY+35, width=813, height=21)
+     *   segmentWidth = 813 / 5 = 162.6
+     *   clickX = initPosX + 8 + (tabIndex * segmentWidth) - (segmentWidth / 2)
+     *   clickY = centerY do DivContainer = initPosY + 35 + 21/2
+     *
+     * Em coordenadas relativas à janela 840x550:
+     *   relX = (8 + tabIndex * 162.6 - 81.3) / 840
+     *   relY = (35 + 10.5) / 550 ≈ 0.0827
+     */
+    private void clickTab(int tabIndex) {
+        if (tabIndex < 0 || tabIndex >= TOTAL_TABS) return;
+        double segmentWidth = 813.0 / TOTAL_TABS; // 162.6
+        double tabCenterX = 8.0 + (tabIndex * segmentWidth) + (segmentWidth / 2.0);
+        double tabCenterY = 35.0 + (21.0 / 2.0); // 45.5
+        double relX = tabCenterX / 840.0;
+        double relY = tabCenterY / 550.0;
+        logger.logDiagnostic("[DailyQuest] Clicando na aba " + tabIndex
+                + " relX=" + String.format("%.3f", relX)
+                + " relY=" + String.format("%.3f", relY));
+        clickQuestGuiRelative(relX, relY);
+    }
+
+    /**
+     * Máquina de estados não-bloqueante para processar missões diárias.
+     * Executa UMA ação por tick. Retorna true quando o processamento
+     * está em andamento (o chamador deve retornar sem executar o fluxo normal).
+     * Retorna false quando dailyMissionsProcessed = true (pronto para normais).
+     */
+    public boolean processDailyMissions(long now) {
+        if (dailyMissionsProcessed) {
+            return false; // Já processou, deixar o fluxo normal rodar
+        }
+
+        // Garante que o QuestGiver esteja aberto
+        if (!ctx.questAPI.isQuestGiverOpen()) {
+            // QuestGiver fechou durante o processamento: reseta tudo
+            logger.logDiagnostic("[DailyQuest] QuestGiver fechou durante processamento de diarias. Resetando.");
+            resetDailyMissionsState();
+            return true; // Ainda não processou; o fluxo normal vai reabrir
+        }
+
+        switch (dailyState) {
+            case DAILY_STATE_CHECK_TAB: {
+                // Verifica se já estamos na aba de diárias
+                int currentTab = ctx.questAPI.getSelectedTab();
+                if (currentTab == DAILY_TAB_INDEX) {
+                    logger.logDiagnostic("[DailyQuest] Ja na aba de diarias (tab=" + currentTab + "). Aguardando lista.");
+                    dailyState = DAILY_STATE_WAIT_LIST;
+                    dailyTabSwitchTime = now;
+                } else {
+                    logger.logDiagnostic("[DailyQuest] Aba atual=" + currentTab + ", trocando para aba de diarias (tab=" + DAILY_TAB_INDEX + ").");
+                    clickTab(DAILY_TAB_INDEX);
+                    dailyTabSwitchTime = now;
+                    dailyState = DAILY_STATE_WAIT_TAB;
+                }
+                ctx.currentAction = "[Quest] Abrindo aba de missoes diarias...";
+                return true;
+            }
+
+            case DAILY_STATE_WAIT_TAB: {
+                // Aguarda a aba trocar (verifica via getSelectedTab)
+                int currentTab = ctx.questAPI.getSelectedTab();
+                if (currentTab == DAILY_TAB_INDEX) {
+                    logger.logDiagnostic("[DailyQuest] Aba de diarias selecionada com sucesso. Aguardando lista carregar.");
+                    dailyState = DAILY_STATE_WAIT_LIST;
+                    dailyTabSwitchTime = now; // Reset para aguardar o carregamento da lista
+                    return true;
+                }
+                // Timeout: se não trocou em 3s, tenta clicar de novo
+                if (now - dailyTabSwitchTime > 3000) {
+                    logger.logDiagnostic("[DailyQuest] Timeout esperando troca de aba. Tentando novamente.");
+                    clickTab(DAILY_TAB_INDEX);
+                    dailyTabSwitchTime = now;
+                }
+                ctx.currentAction = "[Quest] Aguardando troca para aba de diarias...";
+                return true;
+            }
+
+            case DAILY_STATE_WAIT_LIST: {
+                // Aguarda 1.5s para a lista de quests carregar após troca de aba
+                if (now - dailyTabSwitchTime < 1500) {
+                    ctx.currentAction = "[Quest] Aguardando lista de diarias carregar...";
+                    return true;
+                }
+                dailyState = DAILY_STATE_ACCEPT;
+                dailyAcceptRow = 0;
+                dailyNeedSelect = false; // Primeira linha já vem selecionada
+                return true;
+            }
+
+            case DAILY_STATE_ACCEPT: {
+                // Cooldown entre cliques
+                if (now - ctx.lastAcceptAttemptTime < ACCEPT_RETRY_DELAY_MS) {
+                    ctx.currentAction = "[Quest] Aceitando missoes diarias... (" + dailyAcceptedCount + " aceitas)";
+                    return true;
+                }
+
+                // Lê a lista de quests da aba atual
+                List<? extends QuestListItem> quests = ctx.questAPI.getCurrestQuests();
+                if (quests == null || quests.isEmpty()) {
+                    logger.logDiagnostic("[DailyQuest] Lista de diarias vazia. Considerando diarias processadas.");
+                    dailyState = DAILY_STATE_RETURN_TAB;
+                    return true;
+                }
+
+                // Filtra candidatos aceitáveis (activable e não completed)
+                List<? extends QuestListItem> candidates = quests.stream()
+                        .filter(q -> q != null && !q.isCompleted() && q.isActivable())
+                        .collect(java.util.stream.Collectors.toList());
+
+                if (candidates.isEmpty()) {
+                    logger.logDiagnostic("[DailyQuest] Nenhuma diaria aceitavel encontrada. Total na lista=" + quests.size()
+                            + ", aceitas neste ciclo=" + dailyAcceptedCount);
+                    dailyState = DAILY_STATE_RETURN_TAB;
+                    return true;
+                }
+
+                // Limite de falhas atingido: desiste das diárias
+                if (dailyAcceptFailStreak >= MAX_DAILY_ACCEPT_FAILS) {
+                    logger.logDiagnostic("[DailyQuest] Limite de falhas atingido (" + dailyAcceptFailStreak
+                            + "). Desistindo das diarias e voltando para normais.");
+                    dailyState = DAILY_STATE_RETURN_TAB;
+                    return true;
+                }
+
+                WindowRect diagWin = computeQuestGiverWindow();
+
+                // Se precisamos selecionar a linha (linhas > 0)
+                if (dailyNeedSelect) {
+                    dailyNeedSelect = false;
+                    int row = dailyAcceptRow;
+                    double relX = QuestConfig.QuestFlowConfig.LIST_ITEM_X;
+                    double relY = QuestConfig.QuestFlowConfig.LIST_ITEM_Y + (row * 0.0624);
+                    if (relY > 0.93) {
+                        // Esgotamos as linhas visíveis
+                        logger.logDiagnostic("[DailyQuest] Linhas visiveis esgotadas na aba de diarias.");
+                        dailyState = DAILY_STATE_RETURN_TAB;
+                        return true;
+                    }
+                    logger.logDiagnostic("[DailyQuest] SELECT: clicando linha " + (row + 1)
+                            + " rel=(" + String.format("%.2f", relX) + "," + String.format("%.2f", relY) + ")");
+                    clickQuestGuiRelative(relX, relY);
+                    ctx.lastAcceptAttemptTime = now;
+                    // Próximo tick: etapa ACCEPT (clicar no botão)
+                    ctx.currentAction = "[Quest] Aceitando missoes diarias... selecionando linha " + (row + 1);
+                    return true;
+                }
+
+                // Clica no botão Aceitar
+                QuestListItem selected = ctx.questAPI.getSelectedQuestInfo();
+                boolean selectedIsCandidate = selected != null && !selected.isCompleted() && selected.isActivable();
+
+                if (selectedIsCandidate) {
+                    double ax = QuestConfig.QuestFlowConfig.ACCEPT_BUTTON_X;
+                    double ay = QuestConfig.QuestFlowConfig.ACCEPT_BUTTON_Y;
+                    logger.logDiagnostic("[DailyQuest] ACCEPT: clicando Aceitar para diaria '"
+                            + selected.getTitle() + "' (id=" + selected.getId() + ")");
+                    clickQuestGuiRelative(ax, ay);
+                    ctx.lastAcceptAttemptTime = now;
+
+                    // Agenda verificação
+                    dailyPendingAcceptId = selected.getId();
+                    dailyPendingAcceptTitle = selected.getTitle() != null ? selected.getTitle() : "";
+                    dailyPendingVerifyTime = now + 700;
+                    dailyState = DAILY_STATE_VERIFY_ACCEPT;
+                    ctx.currentAction = "[Quest] Aceitando missoes diarias... clicando Aceitar";
+                    return true;
+                }
+
+                // Missão selecionada não é candidata: avança para a próxima linha
+                logger.logDiagnostic("[DailyQuest] Missao selecionada nao e candidata ("
+                        + (selected != null ? selected.getTitle() : "null") + "); avancando linha.");
+                dailyAcceptRow++;
+                dailyNeedSelect = true;
+                ctx.currentAction = "[Quest] Aceitando missoes diarias... (" + dailyAcceptedCount + " aceitas)";
+                return true;
+            }
+
+            case DAILY_STATE_VERIFY_ACCEPT: {
+                // Aguarda o tempo de verificação
+                if (now < dailyPendingVerifyTime) {
+                    ctx.currentAction = "[Quest] Aceitando missoes diarias... verificando aceite";
+                    return true;
+                }
+
+                // Verifica se a quest foi aceita
+                QuestListItem pending = new QuestListItem() {
+                    @Override public int getId() { return dailyPendingAcceptId; }
+                    @Override public int getLevelRequired() { return 0; }
+                    @Override public String getTitle() { return dailyPendingAcceptTitle; }
+                    @Override public String getType() { return ""; }
+                    @Override public boolean isSelected() { return false; }
+                    @Override public boolean isCompleted() { return false; }
+                    @Override public boolean isActivable() { return false; }
+                };
+
+                dailyPendingVerifyTime = 0L;
+
+                if (wasQuestAccepted(pending)) {
+                    dailyAcceptedCount++;
+                    dailyAcceptFailStreak = 0;
+                    logger.logDiagnostic("[DailyQuest] DIARIA ACEITA: " + dailyPendingAcceptId
+                            + ":" + dailyPendingAcceptTitle + " (" + dailyAcceptedCount + " aceitas)");
+                    logger.appendPluginLog("[DailyQuest] DIARIA ACEITA: " + dailyPendingAcceptId
+                            + ":" + dailyPendingAcceptTitle);
+
+                    // Adiciona ao cache de quests aceitas
+                    ctx.acceptedQuestTitleCache.put(dailyPendingAcceptId, dailyPendingAcceptTitle);
+                    saveAcceptedQuestCacheToFile();
+
+                    // Avança para a próxima linha
+                    dailyAcceptRow++;
+                    dailyNeedSelect = true;
+                    dailyPendingAcceptId = -1;
+                    dailyPendingAcceptTitle = "";
+                    dailyState = DAILY_STATE_ACCEPT; // Volta para aceitar mais
+                    ctx.currentAction = "[Quest] Diaria aceita! (" + dailyAcceptedCount + " aceitas). Verificando mais...";
+                    return true;
+                }
+
+                // Aceite não confirmado
+                dailyAcceptFailStreak++;
+                logger.logDiagnostic("[DailyQuest] Aceite NAO confirmado (falha " + dailyAcceptFailStreak
+                        + "/" + MAX_DAILY_ACCEPT_FAILS + ")");
+                dailyPendingAcceptId = -1;
+                dailyPendingAcceptTitle = "";
+
+                if (dailyAcceptFailStreak >= MAX_DAILY_ACCEPT_FAILS) {
+                    logger.logDiagnostic("[DailyQuest] Limite de falhas atingido. Finalizando diarias.");
+                    dailyState = DAILY_STATE_RETURN_TAB;
+                } else {
+                    // Tenta de novo (mesma linha)
+                    dailyState = DAILY_STATE_ACCEPT;
+                }
+                return true;
+            }
+
+            case DAILY_STATE_RETURN_TAB: {
+                // Volta para a aba normal
+                int currentTab = ctx.questAPI.getSelectedTab();
+                if (currentTab == NORMAL_TAB_INDEX) {
+                    logger.logDiagnostic("[DailyQuest] Ja na aba normal. Diarias finalizadas ("
+                            + dailyAcceptedCount + " aceitas).");
+                    dailyState = DAILY_STATE_DONE;
+                    dailyMissionsProcessed = true;
+                    ctx.currentAction = "[Quest] Missoes diarias concluidas (" + dailyAcceptedCount + " aceitas)";
+                    return false; // Libera para o fluxo normal
+                }
+                logger.logDiagnostic("[DailyQuest] Voltando para aba normal (tab=0). Aba atual=" + currentTab);
+                clickTab(NORMAL_TAB_INDEX);
+                dailyTabSwitchTime = now;
+                dailyState = DAILY_STATE_WAIT_RETURN;
+                ctx.currentAction = "[Quest] Voltando para aba de missoes normais...";
+                return true;
+            }
+
+            case DAILY_STATE_WAIT_RETURN: {
+                // Aguarda a aba voltar para normal
+                int currentTab = ctx.questAPI.getSelectedTab();
+                if (currentTab == NORMAL_TAB_INDEX) {
+                    logger.logDiagnostic("[DailyQuest] Aba normal selecionada. Diarias finalizadas ("
+                            + dailyAcceptedCount + " aceitas).");
+                    dailyState = DAILY_STATE_DONE;
+                    dailyMissionsProcessed = true;
+                    ctx.currentAction = "[Quest] Missoes diarias concluidas (" + dailyAcceptedCount + " aceitas)";
+                    return false; // Libera para o fluxo normal
+                }
+                if (now - dailyTabSwitchTime > 3000) {
+                    logger.logDiagnostic("[DailyQuest] Timeout voltando para aba normal. Tentando novamente.");
+                    clickTab(NORMAL_TAB_INDEX);
+                    dailyTabSwitchTime = now;
+                }
+                ctx.currentAction = "[Quest] Aguardando troca para aba de missoes normais...";
+                return true;
+            }
+
+            case DAILY_STATE_DONE:
+            default: {
+                dailyMissionsProcessed = true;
+                return false; // Libera
+            }
+        }
     }
 
     // ---------------------------------------------------------------------
@@ -213,6 +571,8 @@ public class QuestGiverInteraction {
         ctx.pendingAcceptQuestTitle = "";
         ctx.nextAcceptRetryTime = 0L;
         ctx.acceptFailStreak = 0;
+        // Reseta diárias: ao fechar a janela, precisamos reprocessar diárias na reabertura
+        resetDailyMissionsState();
         if (ctx.acceptOpenAttemptTime == 0L) {
             ctx.acceptOpenAttemptTime = now;
         }
@@ -517,6 +877,7 @@ public class QuestGiverInteraction {
         // aproximação que o trySelect iniciou -> loop de vai-e-volta. Mantemos só um
         // moveTo inicial se MUITO longe (acelera a viagem), mas NUNCA chamamos stop.
         if (dist > 750) {
+            ctx.setShipMode("roam");
             ctx.movementAPI.moveTo(questGiver);
             ctx.currentAction = "[QuestCache] Voando ate o Quest Giver... (dist: " + (int) dist + ")";
             return;
@@ -656,6 +1017,8 @@ public class QuestGiverInteraction {
             ctx.acceptRowIndex = 0;
             ctx.acceptNeedSelect = false;
             ctx.acceptNeedAccept = false;
+            // Reseta diárias: ao sair da base, precisamos reprocessar diárias na próxima visita
+            resetDailyMissionsState();
             mapResolver.navigateToMap(homeMap, now);
             return;
         }
@@ -689,6 +1052,7 @@ public class QuestGiverInteraction {
                     + ", mapa=" + (curMap != null ? curMap.getName() : "null")
                     + ", tipos=" + typesStr + ")");
             // Tenta voar um pouco para o centro para descobrir entidades
+            ctx.setShipMode("roam");
             ctx.movementAPI.moveTo(10000, 6200);
             return;
         }
@@ -700,6 +1064,7 @@ public class QuestGiverInteraction {
         // Deixamos o core cuidar: só fazemos moveTo se MUITO longe para acelerar a
         // viagem, e NUNCA chamamos stop (o trySelect para o bot no raio sozinho).
         if (dist > 750) {
+            ctx.setShipMode("roam");
             ctx.movementAPI.moveTo(questStation);
             ctx.currentAction = "[AcceptQuest] Aproximando do quest giver... (dist: " + (int) dist + ")";
             return;
@@ -728,6 +1093,7 @@ public class QuestGiverInteraction {
             // Só chama trySelect se a station estiver "selectable". Se não estiver,
             // aproxima (moveTo) até ficar no raio e ficar selecionável.
             if (!questStation.isSelectable()) {
+                ctx.setShipMode("roam");
                 ctx.movementAPI.moveTo(questStation);
                 ctx.currentAction = "[AcceptQuest] QuestGiver ainda nao selecionavel, aproximando... (dist: " + (int) dist + ")";
                 if (now - ctx.acceptOpenAttemptTime > 8000) {
@@ -762,6 +1128,14 @@ public class QuestGiverInteraction {
         if (now - ctx.acceptOpenAttemptTime < 1500) {
             ctx.currentAction = "[AcceptQuest] Aguardando lista de quests carregar...";
             return;
+        }
+
+        // Step 4.5: PRIORIDADE DIÁRIAS - processa TODAS as missões diárias antes
+        // de aceitar qualquer missão normal. A máquina de estados processDailyMissions
+        // retorna true enquanto estiver trabalhando; quando terminar (ou não houver
+        // diárias), retorna false e liberamos o fluxo para as normais.
+        if (processDailyMissions(now)) {
+            return; // Diárias ainda em processamento; bloqueia o fluxo normal
         }
 
         // Step 5: Cooldown check before accepting
@@ -1104,6 +1478,30 @@ public class QuestGiverInteraction {
     private boolean matchesQuestTypeFilter(QuestListItem item) {
         if (item == null || ctx.config == null) return false;
         String type = item.getType() != null ? item.getType().toLowerCase() : "";
+        String itemTitle = item.getTitle() != null ? item.getTitle().toLowerCase() : "";
+
+        // NUNCA aceitar missões de R-ZONE (Refraction Zone)
+        if (type.contains("r-zone") || type.contains("rzone") || type.contains("refraction") || type.contains("refra")
+                || itemTitle.contains("r-zone") || itemTitle.contains("r zone") || itemTitle.contains("r_zone") || itemTitle.contains("refraction") || itemTitle.contains("refra")) {
+            return false;
+        }
+
+        // Se a quest estiver selecionada na GUI, checa seus requisitos para barrar termos R-ZONE
+        eu.darkbot.api.managers.QuestAPI.Quest selectedQuest = ctx.questAPI.getSelectedQuest();
+        if (selectedQuest != null && selectedQuest.getId() == item.getId()) {
+            java.util.List<? extends eu.darkbot.api.managers.QuestAPI.Requirement> reqs = selectedQuest.getRequirements();
+            if (reqs != null) {
+                for (eu.darkbot.api.managers.QuestAPI.Requirement r : reqs) {
+                    if (r.getDescription() != null) {
+                        String desc = r.getDescription().toLowerCase();
+                        if (desc.contains("r-zone") || desc.contains("r zone") || desc.contains("r_zone") || desc.contains("refraction") || desc.contains("refra")) {
+                            logger.logDiagnostic("[AcceptQuest] Recusando quest selecionada id=" + item.getId() + " '" + item.getTitle() + "' pois contem R-Zone nos requisitos.");
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
 
         // CORREÇÃO: Missões PVP (kill players, damage players) geralmente têm tipo
         // "pvp" ou "kill_players" ou similar. Mas também podem ter tipo genérico
@@ -1154,7 +1552,6 @@ public class QuestGiverInteraction {
             }
             // Fallback: verifica pelo título do próprio item da lista
             if (!isPvpType && item.getTitle() != null) {
-                String itemTitle = item.getTitle().toLowerCase();
                 if (itemTitle.contains("jogador") || itemTitle.contains("player")
                         || itemTitle.contains("kill") || itemTitle.contains("pvp")
                         || itemTitle.contains("inimigo") || itemTitle.contains("enemy")) {

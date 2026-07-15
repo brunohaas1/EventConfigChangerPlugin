@@ -39,17 +39,18 @@ public class ConfigMarker {
     public void updateConfigForQuest(Quest quest, GameMap targetMap) {
         ensureProfileTracking();
 
-        // Rastreamento de chamadas para updateConfigForQuest
-        // NOTA: não usar Thread.currentThread() — o PluginClassLoader do DarkBot
-        // bloqueia java.lang.Thread, causando NoClassDefFoundError no load da classe.
-        System.out.println("[UPDATE_CONFIG_FOR_QUEST] quest='" + (quest != null ? quest.getTitle() : "null")
-                + "' | targetMap=" + (targetMap != null ? targetMap.getName() : "null")
-                + " | caller: updateConfigForQuest() em com.eventchanger.quest.ConfigMarker");
-
         if (targetMap == null) {
             unmarkAll();
             return;
         }
+
+        long now = System.currentTimeMillis();
+        boolean forceUpdate = (ctx.lastTargetMapId == null) || (targetMap.getId() != ctx.lastTargetMapId);
+
+        // Rastreamento de chamadas para updateConfigForQuest
+        // System.out.println("[UPDATE_CONFIG_FOR_QUEST] quest='" + (quest != null ? quest.getTitle() : "null")
+        //         + "' | targetMap=" + (targetMap != null ? targetMap.getName() : "null")
+        //         + " | caller: updateConfigForQuest() em com.eventchanger.quest.ConfigMarker");
 
         logger.logDebug("npcFinder recebeu: targetMap="
                 + (targetMap != null ? targetMap.getName() : "null")
@@ -84,26 +85,33 @@ public class ConfigMarker {
         String currentReqState = reqState.toString();
 
         // [FLOW] 4) Dentro de updateConfigForQuest, após avaliar cada requirement
-        if (quest != null) {
-            StringBuilder flowReqs = new StringBuilder();
-            for (Requirement r : quest.getRequirements()) {
-                if (r.isCompleted()) continue;
-                GameMap rMap = reqMapCache.get(r);
-                flowReqs.append("\n    req='").append(r.getDescription()).append("'")
-                        .append(" | rMap=").append(rMap != null ? rMap.getName() : "null")
-                        .append(" | rMap==targetMap=").append(rMap != null && rMap.getId() == targetMap.getId());
-            }
-            System.out.println("[FLOW] updateConfigForQuest:"
-                    + "\n  quest=" + quest.getTitle()
-                    + "\n  targetMap_recebido=" + (targetMap != null ? targetMap.getName() : "null")
-                    + "\n  requirements_avaliados:" + flowReqs);
-        }
+        // if (quest != null) {
+        //     StringBuilder flowReqs = new StringBuilder();
+        //     for (Requirement r : quest.getRequirements()) {
+        //         if (r.isCompleted()) continue;
+        //         GameMap rMap = reqMapCache.get(r);
+        //         flowReqs.append("\n    req='").append(r.getDescription()).append("'")
+        //                 .append(" | rMap=").append(rMap != null ? rMap.getName() : "null")
+        //                 .append(" | rMap==targetMap=").append(rMap != null && rMap.getId() == targetMap.getId());
+        //     }
+        //     System.out.println("[FLOW] updateConfigForQuest:"
+        //             + "\n  quest=" + quest.getTitle()
+        //             + "\n  targetMap_recebido=" + (targetMap != null ? targetMap.getName() : "null")
+        //             + "\n  requirements_avaliados:" + flowReqs);
+        // }
 
         boolean stateChanged = !currentReqState.equals(ctx.lastRequirementState);
 
         if (stateChanged) {
             ctx.lastRequirementState = currentReqState;
         }
+
+        // THROTTLE: Se o estado dos requisitos não mudou e o mapa é o mesmo,
+        // só atualiza o ConfigAPI a cada 500ms para evitar alto custo de processamento.
+        if (!forceUpdate && !stateChanged && now - ctx.lastConfigUpdateRunTime < 500) {
+            return;
+        }
+        ctx.lastConfigUpdateRunTime = now;
 
         Map<String, NpcInfo> npcInfos = getNpcInfos();
         Map<String, BoxInfo> boxInfos = getBoxInfos();
@@ -151,10 +159,15 @@ public class ConfigMarker {
                     // condicionado à missão pedir aquele minério). Assim o minério
                     // só é marcado quando a missão realmente exige.
                 } else if (isLootType(type) && boxInfos != null) {
-                    String cleanBoxName = MissionMapLoader.normalize(r.getDescription()).toLowerCase();
+                    String desc = r.getDescription();
+                    String cleanBoxName = ctx.normalizedDescCache.get(desc);
+                    if (cleanBoxName == null) {
+                        cleanBoxName = MissionMapLoader.normalize(desc).toLowerCase();
+                        ctx.normalizedDescCache.put(desc, cleanBoxName);
+                    }
                     for (Map.Entry<String, BoxInfo> entry : boxInfos.entrySet()) {
                         String boxName = entry.getKey() != null ? entry.getKey().toLowerCase() : "";
-                        if (npcBoxMatcher.matchesBoxName(boxName, cleanBoxName) && isBoxAllowedByLootConfig(boxName)) {
+                        if (npcBoxMatcher.matchesBoxName(boxName, cleanBoxName)) {
                             desiredBoxKeys.add(entry.getKey());
                         }
                     }
@@ -186,7 +199,6 @@ public class ConfigMarker {
             markAlwaysCollectOres(boxInfos, desiredBoxKeys, quest);
         }
 
-        long now = System.currentTimeMillis();
 
         // CORREÇÃO: invalida o cache de NPCs quando o targetMap muda.
         // Se o requirement anterior era de um mapa (ex: Lordakia em 1-2) e o atual
@@ -248,8 +260,14 @@ public class ConfigMarker {
 
         for (String key : toEnable) {
             NpcInfo info = npcInfos.get(key);
-            if (info != null && !info.getShouldKill()) {
-                info.setShouldKill(true);
+            if (info != null) {
+                if (!info.getShouldKill()) {
+                    info.setShouldKill(true);
+                }
+                if (info.getRadius() == 560.0) {
+                    info.setRadius(450.0);
+                    logger.logDebug("Ajustando raio de " + info.getName() + " de 560 para 450 para estabilizar tiro.");
+                }
             }
         }
 
@@ -291,7 +309,7 @@ public class ConfigMarker {
         ctx.lastAppliedBoxKeys.addAll(desiredBoxKeys);
     }
 
-    private void unmarkAll() {
+    void unmarkAll() {
         Map<String, NpcInfo> npcInfos = getNpcInfos();
         if (npcInfos != null) {
             for (String key : ctx.lastAppliedNpcKeys) {
@@ -353,11 +371,12 @@ public class ConfigMarker {
      */
     private boolean hasOreFromShipRequirement(Quest quest) {
         if (quest == null) return false;
-        for (Requirement r : quest.getRequirements()) {
-            if (r.isCompleted()) continue;
-            if (QuestContext.isOreFromShipQuest(r)) return true;
-        }
-        return false;
+        // Só marca todos os NPCs do mapa e as caixas from_ship se o requirement ATUAL
+        // ativo for a coleta de minérios. Se a tarefa atual for matar um NPC específico
+        // (ex: Kristallon), o loop de requirements principal já ativa o NPC correto,
+        // e o requirement de coleta de minério já ativa as caixas from_ship correspondentes
+        // no loop isLootType. Assim evitamos marcar todos os NPCs do mapa erroneamente.
+        return ctx.currentReq != null && QuestContext.isOreFromShipQuest(ctx.currentReq);
     }
 
     /**
@@ -393,8 +412,7 @@ public class ConfigMarker {
         int marked = 0;
         for (Map.Entry<String, BoxInfo> entry : boxInfos.entrySet()) {
             String boxName = entry.getKey() != null ? entry.getKey().toLowerCase() : "";
-            if (isBoxAllowedByLootConfig(boxName)
-                    && (boxName.contains("from_ship") || boxName.contains("cargo"))) {
+            if (boxName.contains("from_ship") || boxName.contains("cargo")) {
                 desiredBoxKeys.add(entry.getKey());
                 marked++;
             }
@@ -612,7 +630,14 @@ public class ConfigMarker {
     }
 
     private Map<String, BoxInfo> getBoxInfos() {
-        String[] paths = {"COLLECT.BOX_INFOS", "collect.BOX_INFOS", "collect.box_infos"};
+        // Tenta múltiplos caminhos pois o DarkBot pode registrar as BoxInfos
+        // em paths diferentes dependendo da build. Os NPCs usam LOOT.NPC_INFOS,
+        // então as boxes podem usar LOOT.BOX_INFOS também. Testamos COLLECT.*
+        // e LOOT.* em todos os cases.
+        String[] paths = {
+            "COLLECT.BOX_INFOS", "collect.BOX_INFOS", "collect.box_infos",
+            "LOOT.BOX_INFOS",    "loot.BOX_INFOS",    "loot.box_infos"
+        };
         for (String path : paths) {
             try {
                 ConfigSetting<Map<String, BoxInfo>> setting = ctx.configAPI.requireConfig(path);
