@@ -29,6 +29,9 @@ import javax.swing.JComponent;
 @Feature(name = "Quest Module (Bypass)", description = "Completa quests automaticamente: navega mapas, mata NPCs, coleta loot")
 public class QuestModule implements Module, Behavior, Configurable<QuestConfig>, InstructionProvider {
 
+    private static final java.util.regex.Pattern COORDINATES_PATTERN = 
+            java.util.regex.Pattern.compile("(\\d{3,5})\\s*[,/\\\\\\s]\\s*(\\d{3,5})");
+
     private final QuestContext ctx;
     private final QuestLogger logger;
     private final MissionMapLoader missionMapLoader;
@@ -654,6 +657,29 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
                     + " | currentMap=" + (currentMap != null ? currentMap.getName() : "null"));
             mapResolver.navigateToMap(ctx.targetMap, now);
             return;
+        }
+
+        // 4.5 Handle coordinate / travel / proximity / distance requirements specifically
+        if (type == RequirementType.COORDINATES || type == RequirementType.TRAVEL 
+                || type == RequirementType.PROXIMITY || type == RequirementType.DISTANCE) {
+            String desc = ctx.currentReq.getDescription();
+            if (desc != null && !desc.isEmpty()) {
+                java.util.regex.Matcher m = COORDINATES_PATTERN.matcher(desc);
+                if (m.find()) {
+                    try {
+                        double targetX = Double.parseDouble(m.group(1));
+                        double targetY = Double.parseDouble(m.group(2));
+                        
+                        double dist = ctx.heroAPI.distanceTo(targetX, targetY);
+                        if (dist > 300) {
+                            ctx.setShipMode("roam");
+                            ctx.movementAPI.moveTo(targetX, targetY);
+                            ctx.currentAction = "[Quest] Voando para coordenadas: " + (int)targetX + ", " + (int)targetY + " (dist: " + (int)dist + ")";
+                            return;
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
         }
 
         // 5. DELEGAÇÃO ANTECIPADA: Delega para LootCollectorModule para TODOS os tipos
