@@ -214,9 +214,9 @@ public class QuestGiverInteraction {
                     return true;
                 }
 
-                // Filtra candidatos aceitáveis (activable e não completed)
+                // Filtra candidatos aceitáveis (activable e não completed e não R-Zone)
                 List<? extends QuestListItem> candidates = quests.stream()
-                        .filter(q -> q != null && !q.isCompleted() && q.isActivable())
+                        .filter(q -> q != null && !q.isCompleted() && q.isActivable() && !isRZoneQuest(q))
                         .collect(java.util.stream.Collectors.toList());
 
                 if (candidates.isEmpty()) {
@@ -259,7 +259,7 @@ public class QuestGiverInteraction {
 
                 // Clica no botão Aceitar
                 QuestListItem selected = ctx.questAPI.getSelectedQuestInfo();
-                boolean selectedIsCandidate = selected != null && !selected.isCompleted() && selected.isActivable();
+                boolean selectedIsCandidate = selected != null && !selected.isCompleted() && selected.isActivable() && !isRZoneQuest(selected);
 
                 if (selectedIsCandidate) {
                     double ax = QuestConfig.QuestFlowConfig.ACCEPT_BUTTON_X;
@@ -1475,15 +1475,16 @@ public class QuestGiverInteraction {
         return false;
     }
 
-    private boolean matchesQuestTypeFilter(QuestListItem item) {
-        if (item == null || ctx.config == null) return false;
+    private boolean isRZoneQuest(QuestListItem item) {
+        if (item == null) return false;
         String type = item.getType() != null ? item.getType().toLowerCase() : "";
         String itemTitle = item.getTitle() != null ? item.getTitle().toLowerCase() : "";
 
         // NUNCA aceitar missões de R-ZONE (Refraction Zone)
         if (type.contains("r-zone") || type.contains("rzone") || type.contains("refraction") || type.contains("refra")
-                || itemTitle.contains("r-zone") || itemTitle.contains("r zone") || itemTitle.contains("r_zone") || itemTitle.contains("refraction") || itemTitle.contains("refra")) {
-            return false;
+                || itemTitle.contains("r-zone") || itemTitle.contains("r zone") || itemTitle.contains("r_zone") 
+                || itemTitle.contains("refraction") || itemTitle.contains("refra")) {
+            return true;
         }
 
         // Se a quest estiver selecionada na GUI, checa seus requisitos para barrar termos R-ZONE
@@ -1496,12 +1497,21 @@ public class QuestGiverInteraction {
                         String desc = r.getDescription().toLowerCase();
                         if (desc.contains("r-zone") || desc.contains("r zone") || desc.contains("r_zone") || desc.contains("refraction") || desc.contains("refra")) {
                             logger.logDiagnostic("[AcceptQuest] Recusando quest selecionada id=" + item.getId() + " '" + item.getTitle() + "' pois contem R-Zone nos requisitos.");
-                            return false;
+                            return true;
                         }
                     }
                 }
             }
         }
+        return false;
+    }
+
+    private boolean matchesQuestTypeFilter(QuestListItem item) {
+        if (item == null || ctx.config == null) return false;
+        if (isRZoneQuest(item)) return false;
+
+        String type = item.getType() != null ? item.getType().toLowerCase() : "";
+        String itemTitle = item.getTitle() != null ? item.getTitle().toLowerCase() : "";
 
         // CORREÇÃO: Missões PVP (kill players, damage players) geralmente têm tipo
         // "pvp" ou "kill_players" ou similar. Mas também podem ter tipo genérico
