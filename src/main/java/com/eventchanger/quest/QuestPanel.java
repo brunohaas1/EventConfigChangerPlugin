@@ -103,11 +103,13 @@ public class QuestPanel {
                 JPanel row = new JPanel(new BorderLayout(4, 0));
                 row.setOpaque(false);
                 row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 20));
+                row.setMinimumSize(new Dimension(280, 20));
 
                 String typePrefix = getRequirementTypePrefix(req.getRequirementType());
                 String descText = (req.isCompleted() ? "[OK] " : "") + typePrefix + " " + req.getDescription();
                 JLabel desc = makeLabel(descText.trim(), req.isCompleted() ? Font.BOLD : Font.PLAIN, 10);
                 desc.setForeground(req.isCompleted() ? new Color(0, 130, 0) : Color.DARK_GRAY);
+                desc.setMinimumSize(new Dimension(160, 16));
 
                 JProgressBar bar = new JProgressBar(0, 100);
                 bar.setValue((int) Math.min(100, req.getProgressPercentage()));
@@ -115,6 +117,7 @@ public class QuestPanel {
                 bar.setString(formatProgress(req.getProgress(), req.getGoal()));
                 bar.setForeground(req.isCompleted() ? new Color(0, 150, 0) : new Color(60, 120, 200));
                 bar.setPreferredSize(new Dimension(90, 16));
+                bar.setMinimumSize(new Dimension(90, 16));
 
                 row.add(desc, BorderLayout.CENTER);
                 row.add(bar, BorderLayout.EAST);
@@ -123,6 +126,33 @@ public class QuestPanel {
         }
 
         refreshMarkedNpcCounts();
+
+        if (!ctx.cachedMarkedNpcCounts.isEmpty()) {
+            JLabel sep = makeLabel("NPCs no mapa:", Font.BOLD, 10);
+            sep.setBorder(new EmptyBorder(4, 0, 0, 0));
+            sep.setForeground(new Color(80, 80, 80));
+            sep.setMinimumSize(new Dimension(280, 18));
+            requirementsPanel.add(sep);
+
+            for (Map.Entry<String, Integer> entry : ctx.cachedMarkedNpcCounts.entrySet()) {
+                JPanel row = new JPanel(new BorderLayout(4, 0));
+                row.setOpaque(false);
+                row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
+                row.setMinimumSize(new Dimension(280, 18));
+
+                JLabel name = makeLabel("- " + entry.getKey(), Font.PLAIN, 10);
+                name.setForeground(new Color(60, 60, 60));
+                name.setMinimumSize(new Dimension(160, 16));
+
+                JLabel count = makeLabel(String.valueOf(entry.getValue()), Font.BOLD, 10);
+                count.setForeground(entry.getValue() > 0 ? new Color(0, 130, 0) : new Color(120, 120, 120));
+                count.setMinimumSize(new Dimension(30, 16));
+
+                row.add(name, BorderLayout.CENTER);
+                row.add(count, BorderLayout.EAST);
+                requirementsPanel.add(row);
+            }
+        }
 
         requirementsPanel.revalidate();
         requirementsPanel.repaint();
