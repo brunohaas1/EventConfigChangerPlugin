@@ -1590,6 +1590,10 @@ public class QuestGiverInteraction {
             }
         }
 
+        if (isPvpType) {
+            return ctx.config.acceptPvpQuests;
+        }
+
         String configured = ctx.config != null && ctx.config.questTypesToAccept != null
                 ? ctx.config.questTypesToAccept.trim().toUpperCase()
                 : "ALL";

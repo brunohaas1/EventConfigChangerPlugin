@@ -22,6 +22,9 @@ public class QuestConfig {
     @Dropdown(options = QuestTypesOptions.class)
     public String questTypesToAccept = "ALL"; // Tipos de quest para aceitar
 
+    @Option("quest_module.quest_flow.accept_pvp_quests")
+    public boolean acceptPvpQuests = true; // Aceitar missões PVP
+
     @Option("quest_module.auto_kill_npc")
     public boolean autoKillNpc = true; // Matar NPCs automaticamente
     
