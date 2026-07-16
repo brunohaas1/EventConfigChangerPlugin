@@ -314,7 +314,8 @@ public class QuestContext {
                 && t != RequirementType.COLLECT_BONUS_BOX
                 && t != RequirementType.COLLECT_BONUS_BOX_TYPE
                 && t != RequirementType.CARGO
-                && t != RequirementType.SELL_ORE) {
+                && t != RequirementType.SELL_ORE
+                && t != RequirementType.SALVAGE) {
             return false;
         }
         if (t == RequirementType.SELL_ORE) {
