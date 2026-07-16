@@ -1602,9 +1602,28 @@ public class QuestGiverInteraction {
             for (String token : configured.split(",")) {
                 String t = token.trim();
                 if (t.isEmpty()) continue;
-                if (type.contains(t.toLowerCase())) {
-                    matchesConfigured = true;
-                    break;
+                if (t.equalsIgnoreCase("NORMAL")) {
+                    boolean isNormal = type.isEmpty() 
+                            || type.contains("normal") 
+                            || type.contains("level") 
+                            || type.contains("quest") 
+                            || type.contains("challenge")
+                            || type.contains("main")
+                            || (!type.contains("daily") && !type.contains("weekly") && !type.contains("event") && !type.contains("special") && !type.contains("season") && !type.contains("urgent"));
+                    if (isNormal) {
+                        matchesConfigured = true;
+                        break;
+                    }
+                } else if (t.equalsIgnoreCase("SPECIAL")) {
+                    if (type.contains("special") || type.contains("event")) {
+                        matchesConfigured = true;
+                        break;
+                    }
+                } else {
+                    if (type.contains(t.toLowerCase())) {
+                        matchesConfigured = true;
+                        break;
+                    }
                 }
             }
             // Se não casou com o filtro configurado, mas é PVP, permite passar mesmo assim
