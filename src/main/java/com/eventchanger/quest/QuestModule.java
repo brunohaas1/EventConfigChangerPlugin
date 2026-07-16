@@ -491,7 +491,16 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
                     // ao mapa configurado em ore_from_ship.collect_map e matar TODOS
                     // os NPCs do mapa. Sobrescreve o targetMap pela escolha do usuário
                     // em vez de tentar deduzir o mapa pela descrição (que não cita mapa).
-                    if (QuestContext.questHasOreFromShipRequirement(quest) && ctx.config != null
+                    // Tenta resolver o mapa pela descrição/objetivo/banco de dados primeiro
+                    GameMap resolvedMap = mapResolver.resolveQuestTargetMap(quest, ctx.currentReq);
+                    
+                    if (resolvedMap != null) {
+                        GameMap oldTarget2 = ctx.targetMap;
+                        ctx.targetMap = resolvedMap;
+                        ctx.traceTargetMapChange(oldTarget2, ctx.targetMap, quest.getTitle(),
+                            ctx.currentReq != null ? ctx.currentReq.getDescription() : "null",
+                            "makeDecision", "QuestModule", 371);
+                    } else if (QuestContext.questHasOreFromShipRequirement(quest) && ctx.config != null
                             && ctx.config.oreFromShip != null
                             && ctx.config.oreFromShip.collectMap != null
                             && !ctx.config.oreFromShip.collectMap.trim().isEmpty()) {
@@ -502,20 +511,13 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
                             ctx.traceTargetMapChange(oldTarget2, ctx.targetMap, quest.getTitle(),
                                 ctx.currentReq != null ? ctx.currentReq.getDescription() : "null",
                                 "makeDecision", "QuestModule", 371);
-                            logger.logDebug("[OreFromShip] quest de minerio de carga -> usando mapa configurado: "
+                            logger.logDebug("[OreFromShip] quest de minerio de carga (sem mapa especifico) -> usando mapa configurado: "
                                     + oreMap.getName());
-                        } else {
-                            // Mapa configurado inválido: cai no resolve normal
-                            GameMap oldTarget3 = ctx.targetMap;
-                            ctx.targetMap = mapResolver.resolveQuestTargetMap(quest, ctx.currentReq);
-                            ctx.traceTargetMapChange(oldTarget3, ctx.targetMap, quest.getTitle(),
-                                ctx.currentReq != null ? ctx.currentReq.getDescription() : "null",
-                                "makeDecision", "QuestModule", 371);
                         }
                     } else {
                         GameMap oldTarget2 = ctx.targetMap;
-                        ctx.targetMap = mapResolver.resolveQuestTargetMap(quest, ctx.currentReq);
-                        ctx.traceTargetMapChange(oldTarget2, ctx.targetMap, quest.getTitle(),
+                        ctx.targetMap = null;
+                        ctx.traceTargetMapChange(oldTarget2, null, quest.getTitle(),
                             ctx.currentReq != null ? ctx.currentReq.getDescription() : "null",
                             "makeDecision", "QuestModule", 371);
                     }
