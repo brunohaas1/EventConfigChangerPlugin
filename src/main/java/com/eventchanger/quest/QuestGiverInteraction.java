@@ -1538,10 +1538,10 @@ public class QuestGiverInteraction {
         // ("clan_mission", "event") e a descrição "Destroi jogadores inimigos 0/10"
         // está no requirement, não no tipo. Por isso verificamos também o título
         // e os requirements da quest ativa (se disponível).
-        boolean isPvpType = type.contains("pvp") || type.contains("kill") || type.contains("player");
+        boolean isPvpType = type.contains("pvp") || type.contains("player") || type.contains("kill_player");
 
         // Se não identificou pelo tipo, verifica se a quest ativa (getDisplayedQuest)
-        // tem algum requirement que mencione "jogador", "player", "kill" em português
+        // tem algum requirement que mencione "jogador", "player", "pvp" em português
         if (!isPvpType) {
             eu.darkbot.api.managers.QuestAPI.Quest activeQuest = ctx.questAPI.getDisplayedQuest();
             if (activeQuest != null && activeQuest.getId() == item.getId()) {
@@ -1549,8 +1549,7 @@ public class QuestGiverInteraction {
                 String title = activeQuest.getTitle();
                 if (title != null) {
                     String titleLower = title.toLowerCase();
-                    if (titleLower.contains("jogador") || titleLower.contains("player")
-                            || titleLower.contains("kill") || titleLower.contains("pvp")) {
+                    if (titleLower.contains("jogador") || titleLower.contains("player") || titleLower.contains("pvp")) {
                         isPvpType = true;
                     }
                 }
@@ -1561,9 +1560,7 @@ public class QuestGiverInteraction {
                         for (eu.darkbot.api.managers.QuestAPI.Requirement r : reqs) {
                             if (r.getDescription() != null) {
                                 String desc = r.getDescription().toLowerCase();
-                                if (desc.contains("jogador") || desc.contains("player")
-                                        || desc.contains("kill") || desc.contains("pvp")
-                                        || desc.contains("inimigo") || desc.contains("enemy")) {
+                                if (desc.contains("jogador") || desc.contains("player") || desc.contains("pvp")) {
                                     isPvpType = true;
                                     break;
                                 }
@@ -1571,8 +1568,7 @@ public class QuestGiverInteraction {
                             // Verifica também o tipo do requirement
                             if (r.getRequirementType() == eu.darkbot.api.managers.QuestAPI.Requirement.RequirementType.KILL_PLAYERS
                                     || r.getRequirementType() == eu.darkbot.api.managers.QuestAPI.Requirement.RequirementType.DAMAGE_PLAYERS
-                                    || r.getRequirementType() == eu.darkbot.api.managers.QuestAPI.Requirement.RequirementType.DAMAGE_ENEMY_PLAYERS
-                                    || r.getRequirementType() == eu.darkbot.api.managers.QuestAPI.Requirement.RequirementType.KILL_ANY) {
+                                    || r.getRequirementType() == eu.darkbot.api.managers.QuestAPI.Requirement.RequirementType.DAMAGE_ENEMY_PLAYERS) {
                                 isPvpType = true;
                                 break;
                             }
@@ -1582,9 +1578,7 @@ public class QuestGiverInteraction {
             }
             // Fallback: verifica pelo título do próprio item da lista
             if (!isPvpType && item.getTitle() != null) {
-                if (itemTitle.contains("jogador") || itemTitle.contains("player")
-                        || itemTitle.contains("kill") || itemTitle.contains("pvp")
-                        || itemTitle.contains("inimigo") || itemTitle.contains("enemy")) {
+                if (itemTitle.contains("jogador") || itemTitle.contains("player") || itemTitle.contains("pvp")) {
                     isPvpType = true;
                 }
             }
