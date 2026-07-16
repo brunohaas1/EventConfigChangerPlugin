@@ -491,16 +491,13 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
                     // ao mapa configurado em ore_from_ship.collect_map e matar TODOS
                     // os NPCs do mapa. Sobrescreve o targetMap pela escolha do usuário
                     // em vez de tentar deduzir o mapa pela descrição (que não cita mapa).
-                    // Tenta resolver o mapa pela descrição/objetivo/banco de dados primeiro
-                    GameMap resolvedMap = mapResolver.resolveQuestTargetMap(quest, ctx.currentReq);
+                    // Se for missão de minério de carga / venda de minério de nave (from_ship),
+                    // respeita SEMPRE a preferência do mapa configurado pelo usuário.
+                    // Só tenta resolver de forma automática se não houver mapa configurado.
+                    boolean isOreFromShip = QuestContext.questHasOreFromShipRequirement(quest);
+                    GameMap resolvedMap = null;
                     
-                    if (resolvedMap != null) {
-                        GameMap oldTarget2 = ctx.targetMap;
-                        ctx.targetMap = resolvedMap;
-                        ctx.traceTargetMapChange(oldTarget2, ctx.targetMap, quest.getTitle(),
-                            ctx.currentReq != null ? ctx.currentReq.getDescription() : "null",
-                            "makeDecision", "QuestModule", 371);
-                    } else if (QuestContext.questHasOreFromShipRequirement(quest) && ctx.config != null
+                    if (isOreFromShip && ctx.config != null
                             && ctx.config.oreFromShip != null
                             && ctx.config.oreFromShip.collectMap != null
                             && !ctx.config.oreFromShip.collectMap.trim().isEmpty()) {
@@ -511,10 +508,21 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
                             ctx.traceTargetMapChange(oldTarget2, ctx.targetMap, quest.getTitle(),
                                 ctx.currentReq != null ? ctx.currentReq.getDescription() : "null",
                                 "makeDecision", "QuestModule", 371);
-                            logger.logDebug("[OreFromShip] quest de minerio de carga (sem mapa especifico) -> usando mapa configurado: "
-                                    + oreMap.getName());
+                            logger.logDebug("[OreFromShip] usando mapa configurado pelo usuario: " + oreMap.getName());
+                        } else {
+                            resolvedMap = mapResolver.resolveQuestTargetMap(quest, ctx.currentReq);
                         }
                     } else {
+                        resolvedMap = mapResolver.resolveQuestTargetMap(quest, ctx.currentReq);
+                    }
+                    
+                    if (resolvedMap != null) {
+                        GameMap oldTarget2 = ctx.targetMap;
+                        ctx.targetMap = resolvedMap;
+                        ctx.traceTargetMapChange(oldTarget2, ctx.targetMap, quest.getTitle(),
+                            ctx.currentReq != null ? ctx.currentReq.getDescription() : "null",
+                            "makeDecision", "QuestModule", 371);
+                    } else if (!isOreFromShip) {
                         GameMap oldTarget2 = ctx.targetMap;
                         ctx.targetMap = null;
                         ctx.traceTargetMapChange(oldTarget2, null, quest.getTitle(),
