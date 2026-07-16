@@ -236,6 +236,7 @@ public class QuestContext {
     // sai para executar as missões existentes.
     public int acceptFailStreak = 0;
     public static final int MAX_ACCEPT_FAILS = 10;
+    public int scrollClicksInCycle = 0;
     // True while the grid scan is the active accept strategy (skips fixed-click branch).
     public boolean acceptScanning = false;
     // True if we clicked a scan cell last tick and must verify acceptance next tick.

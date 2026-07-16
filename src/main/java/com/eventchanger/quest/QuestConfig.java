@@ -18,6 +18,10 @@ public class QuestConfig {
     @Option("quest_module.quest_type")
     public QuestTypeEnum questType = QuestTypeEnum.NORMAL; // Tipo de quest: NORMAL, URGENT
 
+    @Option("quest_module.quest_flow.quest_types_to_accept")
+    @Dropdown(options = QuestTypesOptions.class)
+    public String questTypesToAccept = "ALL"; // Tipos de quest para aceitar
+
     @Option("quest_module.auto_kill_npc")
     public boolean autoKillNpc = true; // Matar NPCs automaticamente
     
@@ -229,6 +233,13 @@ public class QuestConfig {
 
         @Option("quest_module.logging.log_to_file")
         public boolean logToFile = true; // Salvar logs em arquivo
+    }
+
+    public static class QuestTypesOptions implements Dropdown.Options<String> {
+        @Override
+        public List<String> options() {
+            return Arrays.asList("ALL", "NORMAL", "DAILY", "WEEKLY", "SPECIAL", "SEASON");
+        }
     }
 
 }

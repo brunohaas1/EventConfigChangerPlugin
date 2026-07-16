@@ -921,6 +921,10 @@ public class QuestGiverInteraction {
     // ---------------------------------------------------------------------
 
     public void autoAcceptNewQuest(long now) {
+        if (ctx.acceptRowIndex == 0 && ctx.pendingAcceptVerifyTime == 0L) {
+            ctx.scrollClicksInCycle = 0;
+        }
+
         // --- Dispatch da verificação de aceite agendada (não-bloqueante) ---
         // Se um clique de aceite foi enviado em tick anterior, verificamos agora se
         // a quest foi aceita. Isso evita Thread.sleep no tick principal.
@@ -1172,7 +1176,7 @@ public class QuestGiverInteraction {
         if (candidates.isEmpty()) {
             ctx.currentAction = "[AcceptQuest] Nenhuma quest disponivel para aceitar.";
             logger.logDiagnostic("[AcceptQuest] Nenhum candidato apos filtro (questTypesToAccept="
-                    + QuestConfig.QuestFlowConfig.QUEST_TYPES_TO_ACCEPT + ", questTypeConfig=" + ctx.config.questType + ")");
+                    + (ctx.config != null ? ctx.config.questTypesToAccept : "ALL") + ", questTypeConfig=" + ctx.config.questType + ")");
             // Back-off: if we keep finding nothing, reset the open attempt so the bot
             // reopens via trySelect (sem mexer na janela HUD de missões errada).
             if (now - ctx.lastAcceptSuccessTime > 30000) {
@@ -1252,16 +1256,32 @@ public class QuestGiverInteraction {
             // acumulava erro para linhas de baixo). Usamos o valor exato do DmPlugin.
             double relY = QuestConfig.QuestFlowConfig.LIST_ITEM_Y + (row * 0.0624);
             if (relY > 0.93) {
-                // Esgotamos as linhas visíveis: encerra o ciclo (não há mais missões).
-                logger.logDiagnostic("[AcceptQuest] Linhas visiveis esgotadas; encerrando ciclo de aceite.");
-                // NÃO fechamos via setVisible() (janela HUD errada). O core fecha via
-                // GuiCloser e o loop reabre via trySelect quando necessário.
-                ctx.acceptOpenAttemptTime = 0L;
-                ctx.acceptNeedAccept = false;
-                ctx.acceptRowIndex = 0;
-                ctx.acceptCycleComplete = true;
-                ctx.acceptedThisCycle = 0;
-                return;
+                // Se a linha requer rolagem, clica na seta de rolar para baixo da scrollbar
+                // para descer a lista e trazer as missões ocultas para a última linha visível (linha 5).
+                if (ctx.scrollClicksInCycle < 25) {
+                    ctx.scrollClicksInCycle++;
+                    logger.logDiagnostic("[AcceptQuest] Linha " + (row + 1) + " fora de alcance (relY=" 
+                            + String.format("%.2f", relY) + "). Clicando na seta para descer scroll da lista...");
+                    
+                    // Coordenadas relativas do botão de seta para baixo da scrollbar da lista (X=~0.284, Y=~0.911)
+                    clickQuestGuiRelative(0.284, 0.911);
+                    ctx.lastAcceptAttemptTime = now;
+                    
+                    // Aponta para a linha 5 (a última visível) para o próximo tick, pois a rolagem
+                    // deslocou a lista para cima e trouxe os novos itens para a área de clique.
+                    ctx.acceptRowIndex = 5;
+                    ctx.acceptNeedSelect = true;
+                    return;
+                } else {
+                    logger.logDiagnostic("[AcceptQuest] Limite de rolagens de scroll excedido (25). Encerrando ciclo de aceite.");
+                    ctx.acceptOpenAttemptTime = 0L;
+                    ctx.acceptNeedAccept = false;
+                    ctx.acceptRowIndex = 0;
+                    ctx.acceptCycleComplete = true;
+                    ctx.acceptedThisCycle = 0;
+                    ctx.scrollClicksInCycle = 0;
+                    return;
+                }
             }
             int absX = diagWin != null ? (int) (diagWin.getX() + relX * diagWin.getWidth()) : -1;
             int absY = diagWin != null ? (int) (diagWin.getY() + relY * diagWin.getHeight()) : -1;
@@ -1570,8 +1590,8 @@ public class QuestGiverInteraction {
             }
         }
 
-        String configured = QuestConfig.QuestFlowConfig.QUEST_TYPES_TO_ACCEPT != null
-                ? QuestConfig.QuestFlowConfig.QUEST_TYPES_TO_ACCEPT.trim().toUpperCase()
+        String configured = ctx.config != null && ctx.config.questTypesToAccept != null
+                ? ctx.config.questTypesToAccept.trim().toUpperCase()
                 : "ALL";
         if (!configured.isEmpty() && !"ALL".equals(configured)) {
             boolean matchesConfigured = false;
