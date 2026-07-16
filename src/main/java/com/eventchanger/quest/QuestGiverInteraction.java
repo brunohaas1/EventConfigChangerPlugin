@@ -1263,9 +1263,9 @@ public class QuestGiverInteraction {
                     logger.logDiagnostic("[AcceptQuest] Linha " + (row + 1) + " fora de alcance (relY=" 
                             + String.format("%.2f", relY) + "). Clicando na seta para descer scroll da lista...");
                     
-                    // Coordenadas relativas do scrollbar da lista (X=~0.281): clica na track (Y=~0.85) e na seta de baixo (Y=~0.915)
-                    clickQuestGuiRelative(0.281, 0.85);
-                    clickQuestGuiRelative(0.281, 0.915);
+                    // Coordenadas relativas do scrollbar da lista (X=~0.295): clica na track (Y=~0.85) e na seta de baixo (Y=~0.929)
+                    clickQuestGuiRelative(0.295, 0.85);
+                    clickQuestGuiRelative(0.295, 0.929);
                     ctx.lastAcceptAttemptTime = now;
                     
                     // Aponta para a linha 5 (a última visível) para o próximo tick, pois a rolagem
