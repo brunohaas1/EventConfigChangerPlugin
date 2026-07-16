@@ -1544,7 +1544,7 @@ public class QuestGiverInteraction {
         // tem algum requirement que mencione "jogador", "player", "kill" em português
         if (!isPvpType) {
             eu.darkbot.api.managers.QuestAPI.Quest activeQuest = ctx.questAPI.getDisplayedQuest();
-            if (activeQuest != null) {
+            if (activeQuest != null && activeQuest.getId() == item.getId()) {
                 // Verifica o título da quest
                 String title = activeQuest.getTitle();
                 if (title != null) {
