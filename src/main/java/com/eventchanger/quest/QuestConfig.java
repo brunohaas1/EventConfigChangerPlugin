@@ -98,19 +98,10 @@ public class QuestConfig {
         @Number(min = 0, max = 50, step = 1)
         public int cargoClearThreshold = 5; // Limiar de cargo para vender (%)
 
-        @Option("quest_module.loot.collect_green_boxes")
         public boolean collectGreenBoxes = true; // Coletar caixas verdes
-
-        @Option("quest_module.loot.collect_red_boxes")
         public boolean collectRedBoxes = true; // Coletar caixas vermelhas
-
-        @Option("quest_module.loot.collect_blue_boxes")
         public boolean collectBlueBoxes = true; // Coletar caixas azuis
-
-        @Option("quest_module.loot.collect_bonus_boxes")
         public boolean collectBonusBoxes = true; // Coletar caixas bonus
-
-        @Option("quest_module.loot.collect_cargo_boxes")
         public boolean collectCargoBoxes = true; // Coletar caixas de cargo
     }
 
@@ -177,16 +168,12 @@ public class QuestConfig {
     // Gasto de Munição (para quests SPEND_AMMUNITION)
     // =========================================================================
 
-    @Option("quest_module.ammo")
     public AmmoConfig ammo = new AmmoConfig();
 
     public static class AmmoConfig {
 
-        @Option("quest_module.ammo.auto_spend_ammo")
         public boolean autoSpendAmmo = true; // Gastar munição automaticamente
 
-        @Option("quest_module.ammo.spend_ammo_laser")
-        @Number(min = 1, max = 4, step = 1)
         public int spendAmmoLaser = 4; // Laser para gastar (1-4, LCB-10 mais caro)
     }
 
@@ -203,22 +190,28 @@ public class QuestConfig {
         public boolean autoPvp = true; // Atacar jogadores automaticamente
 
         @Option("quest_module.pvp.pvp_map")
+        @Dropdown(options = PvpMapOptions.class)
         public String pvpMap = "4-4"; // Mapa de destino para quests PVP (ex: 4-4, 5-3, 5-4). Deixe vazio para usar o mapa atual.
 
         @Option("quest_module.pvp.pvp_ammo_key")
         public Character pvpAmmoKey = Character.valueOf('4'); // Tecla de munição para PVP (ex: 4)
     }
 
+    public static class PvpMapOptions implements Dropdown.Options<String> {
+        @Override
+        public List<String> options() {
+            return Arrays.asList("4-4", "4-5", "1-5", "2-5", "3-5", "1-6", "2-6", "3-6", "1-7", "2-7", "3-7", "1-8", "2-8", "3-8", "");
+        }
+    }
+
     // =========================================================================
     // Matching de NPCs
     // =========================================================================
 
-    @Option("quest_module.npc")
     public NpcConfig npc = new NpcConfig();
 
     public static class NpcConfig {
 
-        @Option("quest_module.npc.custom_aliases")
         public String customAliases = ""; // Formato: "nome_npc1=desc_quest1;nome_npc2=desc_quest2"
     }
 
