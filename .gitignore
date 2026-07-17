@@ -1,5 +1,6 @@
 # Compiled class file
 *.class
+.github/
 
 # Log file
 *.log
