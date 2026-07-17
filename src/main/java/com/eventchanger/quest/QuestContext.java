@@ -389,6 +389,10 @@ public class QuestContext {
     public String lastCustomAliasesRaw = "";
     public final Map<String, Set<String>> customNpcAliases = new HashMap<>();
     public Integer lastTargetMapId = null;
+    public String lastQuestTitle = "";
+    public GameMap tempTargetMap = null;
+    public GameMap stableTargetMap = null;
+    public long targetMapChangeTime = 0L;
 
     // ---- Otimizações de performance e controle de estados ----
     public long lastConfigUpdateRunTime = 0L;

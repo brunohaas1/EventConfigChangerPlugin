@@ -187,13 +187,13 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
                 ctx.isSellingCargo = true;
             }
         }
-        // Safely clear selling state when cargo drops below threshold, OR if space becomes available (e.g. after refinement)
-        if (ctx.isSellingCargo && ctx.statsAPI.getMaxCargo() > 0 &&
-            (ctx.statsAPI.getCargo() <= ctx.config.loot.cargoClearThreshold || ctx.statsAPI.getCargo() < ctx.statsAPI.getMaxCargo() - 20)) {
+        // Safely clear selling state when cargo drops below threshold
+        double clearLimit = ctx.statsAPI.getMaxCargo() * (ctx.config.loot.cargoClearThreshold / 100.0);
+        if (ctx.isSellingCargo && ctx.statsAPI.getMaxCargo() > 0 && ctx.statsAPI.getCargo() <= clearLimit) {
             ctx.isSellingCargo = false;
             ctx.tradeWindowOpen = false;
             ctx.oreAPI.showTrade(false, null);
-            logger.logDebug("Cargo liberado/refinado. Retomando quests. Cargo atual: " + ctx.statsAPI.getCargo() + "/" + ctx.statsAPI.getMaxCargo());
+            logger.logDebug("Venda de cargo concluida (cargo abaixo do limite de " + (int)clearLimit + "). Retomando quests. Cargo atual: " + ctx.statsAPI.getCargo() + "/" + ctx.statsAPI.getMaxCargo());
         }
 
         if (ctx.isSellingCargo) {
@@ -386,6 +386,32 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
     }
 
     private void makeDecision(long now) {
+        GameMap oldTargetMap = ctx.stableTargetMap;
+        makeDecisionInternal(now);
+        GameMap calculatedTargetMap = ctx.targetMap;
+
+        if (calculatedTargetMap != oldTargetMap) {
+            if (oldTargetMap == null && ctx.tempTargetMap == null) {
+                ctx.stableTargetMap = calculatedTargetMap;
+                ctx.tempTargetMap = calculatedTargetMap;
+                ctx.targetMap = calculatedTargetMap;
+            } else {
+                if (calculatedTargetMap != ctx.tempTargetMap) {
+                    ctx.tempTargetMap = calculatedTargetMap;
+                    ctx.targetMapChangeTime = now;
+                } else if (now - ctx.targetMapChangeTime >= 3000) {
+                    ctx.stableTargetMap = calculatedTargetMap;
+                    ctx.targetMap = calculatedTargetMap;
+                } else {
+                    ctx.targetMap = oldTargetMap;
+                }
+            }
+        } else {
+            ctx.tempTargetMap = calculatedTargetMap;
+        }
+    }
+
+    private void makeDecisionInternal(long now) {
         // [QUEST_STATE] Log de entrada (instrumentação p/ investigar regressão de perda de estado)
         // try {
         //     Quest displayedQuest = ctx.questAPI.getDisplayedQuest();
@@ -444,16 +470,13 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
             //         + "\n  origem=makeDecision() QuestModule (findBestRequirement)"
             //         + "\n  stack=" + "makeDecision:linha~" + (new Throwable().getStackTrace().length));
             if (ctx.currentReq != null) {
-                if (quest.getId() != ctx.lastQuestId) {
+                String questTitle = quest.getTitle() != null ? quest.getTitle() : "";
+                if (!questTitle.equals(ctx.lastQuestTitle)) {
+                    ctx.lastQuestTitle = questTitle;
                     ctx.lastQuestId = quest.getId();
                     ctx.lastProgressValue = -1;
                     ctx.lastProgressTime = now;
                     GameMap oldTarget = ctx.targetMap;
-                    // [QUEST_STATE] Ponto 4: antes de atribuir ctx.targetMap = null
-                    // System.out.println("[QUEST_STATE] ATRIB ctx.targetMap"
-                    //         + "\n  valor_antigo=" + (oldTarget != null ? oldTarget.getName() : "null")
-                    //         + "\n  valor_novo=null"
-                    //         + "\n  quem_alterou=makeDecision() (troca de quest id)");
                     ctx.targetMap = null;
                     ctx.traceTargetMapChange(oldTarget, null, quest.getTitle(), 
                         ctx.currentReq != null ? ctx.currentReq.getDescription() : "null",
