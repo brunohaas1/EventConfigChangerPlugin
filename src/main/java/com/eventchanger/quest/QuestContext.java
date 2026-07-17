@@ -385,6 +385,7 @@ public class QuestContext {
     public LootCollectorModule defaultLootCollectorModule;
     public final Set<String> lastAppliedNpcKeys = new HashSet<>();
     public final Set<String> lastAppliedBoxKeys = new HashSet<>();
+    public final Map<String, Double> originalNpcRadii = new HashMap<>();
     public String lastProfileName = null;
     public String lastCustomAliasesRaw = "";
     public final Map<String, Set<String>> customNpcAliases = new HashMap<>();
