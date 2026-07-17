@@ -40,3 +40,11 @@ dmplugin.properties
 dmplugin.xml
 module_dmplugin.xml
 target/
+
+# Scratch and reference files
+*_src.java
+*_core.java
+*.xlsx
+*.bak*
+scripts/
+*.json
