@@ -1344,6 +1344,52 @@ public class QuestGiverInteraction {
                     && !selected.isCompleted()
                     && selected.isActivable()
                     && matchesQuestTypeFilter(selected);
+
+            // Verificação extra de PvP pelos requirements da quest selecionada.
+            // O matchesQuestTypeFilter pode não detectar PvP se o título é genérico
+            // (ex: "Verdadeiros patifes da Terra") e a quest não é a displayedQuest.
+            // Aqui já selecionamos a quest na GUI, então getSelectedQuest()/getDisplayedQuest()
+            // devem retornar a quest com seus requirements completos.
+            if (selectedIsCandidate && !ctx.config.acceptPvpQuests) {
+                boolean isPvpByReqs = false;
+                eu.darkbot.api.managers.QuestAPI.Quest selQuest = ctx.questAPI.getSelectedQuest();
+                if (selQuest == null) selQuest = ctx.questAPI.getDisplayedQuest();
+                if (selQuest != null && selQuest.getId() == selected.getId()) {
+                    // Verifica título
+                    if (selQuest.getTitle() != null && isPvpText(selQuest.getTitle())) {
+                        isPvpByReqs = true;
+                    }
+                    // Verifica requirements
+                    if (!isPvpByReqs) {
+                        java.util.List<? extends eu.darkbot.api.managers.QuestAPI.Requirement> reqs = selQuest.getRequirements();
+                        if (reqs != null) {
+                            for (eu.darkbot.api.managers.QuestAPI.Requirement r : reqs) {
+                                if (r.getDescription() != null && isPvpText(r.getDescription())) {
+                                    isPvpByReqs = true;
+                                    break;
+                                }
+                                if (r.getRequirementType() != null
+                                        && (r.getRequirementType() == eu.darkbot.api.managers.QuestAPI.Requirement.RequirementType.KILL_PLAYERS
+                                        || r.getRequirementType() == eu.darkbot.api.managers.QuestAPI.Requirement.RequirementType.DAMAGE_PLAYERS
+                                        || r.getRequirementType() == eu.darkbot.api.managers.QuestAPI.Requirement.RequirementType.DAMAGE_ENEMY_PLAYERS
+                                        || r.getRequirementType().name().contains("PLAYER"))) {
+                                    isPvpByReqs = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (isPvpByReqs) {
+                    logger.logDiagnostic("[AcceptQuest] Quest SELECIONADA id=" + selected.getId()
+                            + " title='" + selected.getTitle() + "' RECUSADA: PvP detectado nos requirements e acceptPvpQuests=false.");
+                    System.out.println("[QuestModule] Quest PVP recusada (requirements): " + selected.getTitle());
+                    ctx.acceptRowIndex++;
+                    ctx.acceptNeedSelect = true;
+                    return;
+                }
+            }
+
             if (selectedIsCandidate) {
                 if (diagWin != null) {
                     logger.logDiagnostic("[AcceptQuest] Quest SELECIONADA na GUI e valida: id=" + selected.getId()
