@@ -1215,9 +1215,9 @@ public class QuestGiverInteraction {
                     clickQuestGuiRelative(0.295, 0.85);
                     ctx.lastAcceptAttemptTime = now;
                     
-                    // Aponta para a linha 5 (a última visível) para o próximo tick, pois a rolagem
-                    // deslocou a lista para cima e trouxe os novos itens para a área de clique.
-                    ctx.acceptRowIndex = 5;
+                    // Aponta para a linha 0 (o começo da lista visível) para o próximo tick, pois a rolagem
+                    // deslocou novos itens para o topo da área de clique visível.
+                    ctx.acceptRowIndex = 0;
                     ctx.acceptNeedSelect = true;
                     return;
                 } else {
