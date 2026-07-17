@@ -1534,42 +1534,33 @@ public class QuestGiverInteraction {
         String type = item.getType() != null ? item.getType().toLowerCase() : "";
         String itemTitle = item.getTitle() != null ? item.getTitle().toLowerCase() : "";
 
-        // CORREÇÃO: Missões PVP (kill players, damage players) geralmente têm tipo
-        // "pvp" ou "kill_players" ou similar. Mas também podem ter tipo genérico
-        // ("clan_mission", "event") e a descrição "Destroi jogadores inimigos 0/10"
-        // está no requirement, não no tipo. Por isso verificamos também o título
-        // e os requirements da quest ativa (se disponível).
         boolean isPvpType = type.contains("pvp") || type.contains("player") || type.contains("kill_player");
 
         // Se não identificou pelo tipo, verifica se a quest ativa (getDisplayedQuest)
-        // tem algum requirement que mencione "jogador", "player", "pvp" em português
+        // tem algum requirement que mencione termos PvP
         if (!isPvpType) {
             eu.darkbot.api.managers.QuestAPI.Quest activeQuest = ctx.questAPI.getDisplayedQuest();
             if (activeQuest != null && activeQuest.getId() == item.getId()) {
                 // Verifica o título da quest
                 String title = activeQuest.getTitle();
-                if (title != null) {
-                    String titleLower = title.toLowerCase();
-                    if (titleLower.contains("jogador") || titleLower.contains("player") || titleLower.contains("pvp")) {
-                        isPvpType = true;
-                    }
+                if (title != null && isPvpText(title)) {
+                    isPvpType = true;
                 }
                 // Verifica os requirements da quest ativa
                 if (!isPvpType) {
                     java.util.List<? extends eu.darkbot.api.managers.QuestAPI.Requirement> reqs = activeQuest.getRequirements();
                     if (reqs != null) {
                         for (eu.darkbot.api.managers.QuestAPI.Requirement r : reqs) {
-                            if (r.getDescription() != null) {
-                                String desc = r.getDescription().toLowerCase();
-                                if (desc.contains("jogador") || desc.contains("player") || desc.contains("pvp")) {
-                                    isPvpType = true;
-                                    break;
-                                }
+                            if (r.getDescription() != null && isPvpText(r.getDescription())) {
+                                isPvpType = true;
+                                break;
                             }
                             // Verifica também o tipo do requirement
                             if (r.getRequirementType() == eu.darkbot.api.managers.QuestAPI.Requirement.RequirementType.KILL_PLAYERS
                                     || r.getRequirementType() == eu.darkbot.api.managers.QuestAPI.Requirement.RequirementType.DAMAGE_PLAYERS
-                                    || r.getRequirementType() == eu.darkbot.api.managers.QuestAPI.Requirement.RequirementType.DAMAGE_ENEMY_PLAYERS) {
+                                    || r.getRequirementType() == eu.darkbot.api.managers.QuestAPI.Requirement.RequirementType.DAMAGE_ENEMY_PLAYERS
+                                    || r.getRequirementType().name().contains("PLAYER")
+                                    || r.getRequirementType().name().contains("PLAYERS")) {
                                 isPvpType = true;
                                 break;
                             }
@@ -1578,10 +1569,8 @@ public class QuestGiverInteraction {
                 }
             }
             // Fallback: verifica pelo título do próprio item da lista
-            if (!isPvpType && item.getTitle() != null) {
-                if (itemTitle.contains("jogador") || itemTitle.contains("player") || itemTitle.contains("pvp")) {
-                    isPvpType = true;
-                }
+            if (!isPvpType && item.getTitle() != null && isPvpText(item.getTitle())) {
+                isPvpType = true;
             }
         }
 
@@ -1630,6 +1619,17 @@ public class QuestGiverInteraction {
             return isUrgent || isPvpType; // PVP sempre permitido mesmo em modo URGENT
         }
         return !isUrgent || isPvpType; // PVP sempre permitido
+    }
+
+    private boolean isPvpText(String text) {
+        if (text == null) return false;
+        String t = text.toLowerCase();
+        return t.contains("jogador") || t.contains("player") || t.contains("pvp")
+                || t.contains("eic") || t.contains("mmo") || t.contains("vru") || t.contains("vrú")
+                || t.contains("piloto") || t.contains("pilotos")
+                || t.contains("inimigo") || t.contains("inimiga") || t.contains("guerra")
+                || t.contains("outra companhia") || t.contains("outras companhias")
+                || t.contains("companhia inimiga") || t.contains("companhias inimigas");
     }
 
     private int getAcceptRetryCount(int questId) {
