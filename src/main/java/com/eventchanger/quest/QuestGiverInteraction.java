@@ -22,7 +22,7 @@ import java.util.List;
  * na GUI e persistência do cache de quests aceitas em arquivo.
  */
 public class QuestGiverInteraction {
-    private static final long ACCEPT_RETRY_DELAY_MS = 400L;
+    private static final long ACCEPT_RETRY_DELAY_MS = QuestConfig.QuestFlowConfig.ACCEPT_INTERVAL_MS;
 
     // --- Constantes e estado para prioridade de missões diárias ---
     /**
