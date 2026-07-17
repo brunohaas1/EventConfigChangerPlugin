@@ -91,7 +91,7 @@ public class QuestConfig {
         @Option("quest_module.loot.always_collect_event_ores")
         public boolean alwaysCollectEventOres = true; // Sempre coletar minerios de evento
 
-        @Option("quest_module.loot.event_ore_keys")
+        @Option.Ignore
         public String eventOreKeys = "scrapium,prismatium,mucosum,muscosum,luminium,boltrum,bifenon"; // Minerios de evento (separados por virgula)
 
         @Option("quest_module.loot.cargo_clear_threshold")
