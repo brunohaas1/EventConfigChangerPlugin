@@ -241,7 +241,7 @@ public class QuestConfig {
     public static class QuestTypesOptions implements Dropdown.Options<String> {
         @Override
         public List<String> options() {
-            return Arrays.asList("ALL", "NORMAL", "DAILY", "WEEKLY", "SPECIAL", "SEASON");
+            return Arrays.asList("ALL", "NORMAL", "DAILY");
         }
     }
 
