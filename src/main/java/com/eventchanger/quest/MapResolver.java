@@ -743,7 +743,19 @@ public class MapResolver {
             return ctx.starSystemAPI.findMap(prefix + "8").orElse(null);
         }
 
-        // Para aceitar quests: always use X-1 (has Quest Giver)
+        // Escolhe entre X-1 e X-8 baseado no mapa que estiver mais perto do atual
+        GameMap current = ctx.heroAPI.getMap();
+        if (current != null) {
+            String name = current.getName();
+            if (name != null) {
+                // Se o mapa atual termina com 5, 6, 7 ou 8 (ex: 1-7, 2-6, 3-5), X-8 está mais perto.
+                if (name.endsWith("5") || name.endsWith("6") || name.endsWith("7") || name.endsWith("8")) {
+                    return ctx.starSystemAPI.findMap(prefix + "8").orElse(null);
+                }
+            }
+        }
+
+        // Caso contrário, usa X-1 por padrão
         return ctx.starSystemAPI.findMap(prefix + "1").orElse(null);
     }
 
