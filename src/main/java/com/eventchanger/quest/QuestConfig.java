@@ -51,7 +51,7 @@ public class QuestConfig {
         public static final int MAX_QUESTS_PER_MAP = 5;            // Máximo de quests por mapa
         public static final String QUEST_TYPES_TO_ACCEPT = "ALL";  // Tipos: ALL, NORMAL, DAILY, WEEKLY, SPECIAL, SEASON
 
-        // Posições de clique FIXAS (iguais ao DmPlugin nativo, não configuráveis)
+        // Posições de clique FIXAS (não configuráveis)
         public static final double ACCEPT_BUTTON_X = 0.95; // X relativa do botão Aceitar (~X=775/813)
         public static final double ACCEPT_BUTTON_Y = 0.93; // Y relativa do botão Aceitar (~Y=512/550)
         public static final double LIST_ITEM_X = 0.151;    // Centro da lista (127/840) = winX+127
@@ -66,7 +66,7 @@ public class QuestConfig {
      * Modos de teste de clique para isolar a cadeia de mouseClick.
      *  - OFF: comportamento normal (usa ctx.darkInput, caminho atual do plugin).
      *  - VIA_DARKINPUT: clica no centro do mapa usando ctx.darkInput (caminho atual).
-     *  - VIA_CORE_API: clica no centro do mapa usando Main.API (caminho do DmPlugin).
+     *  - VIA_CORE_API: clica no centro do mapa usando Main.API.
      * Com a janela do QuestGiver FECHADA, se a nave andar no VIA_CORE_API e NÃO
      * andar no VIA_DARKINPUT, confirma que ctx.darkInput é uma instância órfã.
      */

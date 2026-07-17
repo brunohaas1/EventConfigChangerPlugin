@@ -23,13 +23,12 @@ public class QuestLogger {
     }
 
     public boolean isVerboseLoggingEnabled() {
-        return ctx.config != null && ctx.config.logging != null && ctx.config.logging.verbose;
+        return true;
     }
 
     public void logDebug(String msg) {
-        if (isVerboseLoggingEnabled()) {
-            System.out.println("[QuestModule] DEBUG " + msg);
-        }
+        System.out.println("[QuestModule] DEBUG " + msg);
+        appendPluginLog("[DEBUG] " + msg);
     }
 
     /**
@@ -39,12 +38,12 @@ public class QuestLogger {
      * processamento de quests secundárias) e gerariam spam no console.
      */
     public void logDebugThrottled(String msg, long minIntervalMs) {
-        if (!isVerboseLoggingEnabled()) return;
         long now = System.currentTimeMillis();
         Long last = lastThrottledLog.get(msg);
         if (last != null && now - last < minIntervalMs) return;
         lastThrottledLog.put(msg, now);
         System.out.println("[QuestModule] DEBUG " + msg);
+        appendPluginLog("[DEBUG] " + msg);
     }
 
     /**
@@ -62,7 +61,6 @@ public class QuestLogger {
      * Append plugin-specific log entries to a file for easier diagnostics.
      */
     public void appendPluginLog(String msg) {
-        if (ctx.config != null && ctx.config.logging != null && !ctx.config.logging.logToFile) return;
         try {
             Path logFile = Path.of(System.getProperty("user.dir", ".")).resolve("EventConfigChanger.log");
             Files.writeString(logFile, Instant.now() + " " + msg + System.lineSeparator(),
@@ -90,7 +88,6 @@ public class QuestLogger {
      * para a missão inteira, em vez de 1 vez por variante de NPC.
      */
     public void appendPluginLogThrottled(String throttleKey, String msg, long minIntervalMs) {
-        if (ctx.config != null && ctx.config.logging != null && !ctx.config.logging.logToFile) return;
         long now = System.currentTimeMillis();
         // Prefixo "F:" para não colidir com as chaves do logDebugThrottled (console)
         Long last = lastThrottledLog.get("F:" + throttleKey);

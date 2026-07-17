@@ -108,7 +108,7 @@ public class QuestGiverInteraction {
 
     /**
      * Clica numa aba específica do QuestGiver, usando as coordenadas exatas
-     * do DmPlugin nativo (QuestGiverMediator.changeTab):
+     * do plugin nativo:
      *   getTabs() → DivContainer(initPosX+8, initPosY+35, width=813, height=21)
      *   segmentWidth = 813 / 5 = 162.6
      *   clickX = initPosX + 8 + (tabIndex * segmentWidth) - (segmentWidth / 2)
@@ -496,8 +496,8 @@ public class QuestGiverInteraction {
      *
      * DESCOBERTA DO BUG: a GUI "quests" do DarkBot core (eu.darkbot.core.objects.Gui)
      * reporta getWidth()/getHeight() INCORRETOS para a janela do QuestGiver — nos logs
-     * ela aparece como 200x200, enquanto a janela real é 813x550. O DmPlugin nativo
-     * (QuestGiverMediator.getWindowQuestGiver) contorna isso usando um tamanho FIXO de
+     * ela aparece como 200x200, enquanto a janela real é 813x550. O plugin nativo
+     * contorna isso usando um tamanho FIXO de
      * 813x550 para posicionar o botão Accept (getEndPosX()-10 / getEndPosY()-35).
      *
      * Como os cliques de aceite/select eram calculados com base em getWidth()/getHeight()
@@ -515,7 +515,7 @@ public class QuestGiverInteraction {
      * IMPORTANTE: NÃO usamos ctx.questGui (a GUI "quests" do core) para nada além de
      * log. Essa GUI é a janela HUD de missões, NÃO o QuestGiver, e seus getX/getY/
      * getWidth/getHeight são inconsistentes (já vimos 200x200). O clique real usa
-     * getViewBounds() + janela fixa 840x550 (igual ao DmPlugin nativo), que é
+     * getViewBounds() + janela fixa 840x550 (igual ao plugin nativo), que é
      * independente de ctx.questGui. Aqui retornamos sempre o retângulo centralizado
      * em getViewBounds() para fins de log.
      */
@@ -619,7 +619,7 @@ public class QuestGiverInteraction {
     }
 
     public void clickQuestGuiRelative(double relX, double relY) {
-        // CORREÇÃO DO CLIQUE: o DmPlugin nativo (que funciona) clica em coordenadas
+        // CORREÇÃO DO CLIQUE: o plugin nativo clica em coordenadas
         // ABSOLUTAS de tela calculadas a partir de getViewBounds() (mapManager.screenBound)
         // + tamanho fixo da janela (840x550), usando Main.API.mouseClick direto.
         //
@@ -627,7 +627,7 @@ public class QuestGiverInteraction {
         // Porém o Gui "quests" do DarkBot reporta getX()/getY()/getWidth()/getHeight()
         // INCONSISTENTES (já vimos 200x200 e posições defasadas nos logs), então o
         // clique relativo caía fora do botão. Para garantir que o clique chegue exatamente
-        // onde o DmPlugin acerta, usamos getViewBounds() (espaço de tela do canvas) + o
+        // onde o plugin nativo acerta, usamos getViewBounds() (espaço de tela do canvas) + o
         // tamanho fixo real da janela, e enviamos coordenadas ABSOLUTAS via Main.API.
         GameScreenAPI gsa = ctx.pluginAPI.requireAPI(GameScreenAPI.class);
         Area.Rectangle vb = gsa.getViewBounds();
@@ -635,8 +635,8 @@ public class QuestGiverInteraction {
             logger.logDebug("[QuestModule] clickQuestGuiRelative IGNORADO: getViewBounds nulo.");
             return;
         }
-        // Janela do QuestGiver: centralizada no canvas, tamanho fixo 840x550 (igual DmPlugin).
-        double w = QUEST_GIVER_WINDOW_WIDTH + 27.0; // 840 (DmPlugin usa 840 de largura)
+        // Janela do QuestGiver: centralizada no canvas, tamanho fixo 840x550.
+        double w = QUEST_GIVER_WINDOW_WIDTH + 27.0; // 840
         double h = QUEST_GIVER_WINDOW_HEIGHT;       // 550
         double x = vb.getWidth() / 2.0 - w / 2.0;
         double y = vb.getHeight() / 2.0 - h / 2.0;
@@ -652,7 +652,7 @@ public class QuestGiverInteraction {
         // de um PluginClassLoader que BLOQUEIA java.lang.Thread (lista PROTECTED em
         // PluginClassLoader), então qualquer referência a Thread causa
         // NoClassDefFoundError/ClassNotFoundException. O bot já roda em tick; o mouseMove
-        // e o mouseClick são comandos enviados ao jogo no mesmo tick (igual ao DmPlugin
+        // e o mouseClick são comandos enviados ao jogo no mesmo tick (igual ao plugin
         // nativo, que não espera entre mover e clicar). Se for preciso um intervalo
         // antes do próximo clique, use System.currentTimeMillis() + cooldown (padrão
         // oficial: clickDelay, waitUntil, nextCheck), nunca Thread.sleep.
@@ -662,7 +662,7 @@ public class QuestGiverInteraction {
                 + " | darkInput hash=" + darkInputHash
                 + " | coreApi(Main.API) hash=" + coreApiHash
                 + " | coreApi!=null=" + (ctx.coreApi != null));
-        // --- Caminho: Main.API (mesma cadeia do DmPlugin oficial, acoplada ao pid) ---
+        // --- Caminho: Main.API (mesma cadeia do plugin oficial, acoplada ao pid) ---
         Main.API.mouseMove(absX, absY);
         Main.API.mouseClick(absX, absY);
         // --- Caminho B (só loga/executa se habilitado no teste): coreApi (Main.API) ---
@@ -676,7 +676,7 @@ public class QuestGiverInteraction {
      * Clica no CENTRO do mapa (getViewBounds) usando o caminho selecionado em
      * QuestConfig.QuestFlowConfig.CLICK_TEST_MODE:
      *   - VIA_DARKINPUT: usa ctx.darkInput.mouseClick (caminho atual do plugin)
-     *   - VIA_CORE_API:  usa ctx.coreApi.mouseClick (Main.API, caminho do DmPlugin)
+     *   - VIA_CORE_API:  usa ctx.coreApi.mouseClick (Main.API)
      *
      * Se a nave começar a andar no VIA_CORE_API e NÃO andar no VIA_DARKINPUT,
      * confirma que ctx.darkInput é uma instância DarkInput ÓRFÃ (nunca acoplada
@@ -724,8 +724,8 @@ public class QuestGiverInteraction {
 
     /**
      * Grade ABSOLUTA de posições relativas (0..1) cobrindo o canto INFERIOR-DIREITO
-     * da janela do QuestGiver, onde o botão "Aceitar" REAL fica. O DmPlugin nativo
-     * (QuestGiverMediator) clica em getEndPosX()-10 / getEndPosY()-35, ou seja
+     * da janela do QuestGiver, onde o botão "Aceitar" REAL fica. O plugin nativo
+     * clica em getEndPosX()-10 / getEndPosY()-35, ou seja
      * ~relX 0.975 / relY 0.936 numa janela 813x550. A grade abaixo varre
      * x=0.82..0.98 e y=0.82..0.98, garantindo que o botão seja atingido mesmo se
      * acceptButtonX/Y estiverem dessintonizados (ex.: usuário configurou 0.72, que
@@ -1250,10 +1250,10 @@ public class QuestGiverInteraction {
             ctx.acceptNeedSelect = false;
             int row = ctx.acceptRowIndex;
             double relX = QuestConfig.QuestFlowConfig.LIST_ITEM_X;
-            // Espaçamento entre linhas = altura da linha / altura da janela.
-            // DmPlugin: getQuestList().getHeight()=206, dividido por 6 linhas = 34,33px.
+            // Altura da linha / altura da janela:
+            // getQuestList().getHeight()=206, dividido por 6 linhas = 34,33px.
             // Relativo: 34,33/550 = 0,0624 (era 0,064, o que deslocava ~0,9px/linha e
-            // acumulava erro para linhas de baixo). Usamos o valor exato do DmPlugin.
+            // acumulava erro para linhas de baixo). Usamos o valor exato.
             double relY = QuestConfig.QuestFlowConfig.LIST_ITEM_Y + (row * 0.0624);
             if (relY > 0.93) {
                 // Se a linha requer rolagem, clica na seta de rolar para baixo da scrollbar

@@ -55,7 +55,7 @@ public class QuestContext {
     public final BotAPI botAPI;
     public final DarkInput darkInput;
     public final AttackAPI attackAPI;
-    // Caminho de clique do CORE (Main.API), usado pelo DmPlugin e por nós no teste
+    // Caminho de clique do CORE (Main.API), usado por nós no teste
     // de comparação. É a instância de IDarkBotAPI real, com a interação nativa
     // ACOPLADA ao pid do cliente do jogo (ao contrário de ctx.darkInput, que é uma
     // instância DarkInput órfã criada pelo PluginApiImpl e nunca acoplada).
