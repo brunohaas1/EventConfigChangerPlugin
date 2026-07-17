@@ -94,8 +94,7 @@ public class QuestConfig {
         @Option.Ignore
         public String eventOreKeys = "scrapium,prismatium,mucosum,muscosum,luminium,boltrum,bifenon"; // Minerios de evento (separados por virgula)
 
-        @Option("quest_module.loot.cargo_clear_threshold")
-        @Number(min = 0, max = 50, step = 1)
+        @Option.Ignore
         public int cargoClearThreshold = 5; // Limiar de cargo para vender (%)
 
         @Option.Ignore
