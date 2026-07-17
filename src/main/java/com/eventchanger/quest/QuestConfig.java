@@ -120,7 +120,10 @@ public class QuestConfig {
     public static class OreMapOptions implements Dropdown.Options<String> {
         @Override
         public List<String> options() {
-            return Arrays.asList("1-2", "2-2", "3-2", "1-3", "2-3", "3-3", "1-4", "2-4", "3-4", "1-5", "2-5", "3-5");
+            return Arrays.asList(
+                "1-2", "2-2", "3-2", "1-3", "2-3", "3-3", "1-4", "2-4", "3-4", "1-5", "2-5", "3-5",
+                "1-6", "2-6", "3-6", "1-7", "2-7", "3-7", "1-8", "2-8", "3-8"
+            );
         }
     }
 
