@@ -98,10 +98,15 @@ public class QuestConfig {
         @Number(min = 0, max = 50, step = 1)
         public int cargoClearThreshold = 5; // Limiar de cargo para vender (%)
 
+        @Option.Ignore
         public boolean collectGreenBoxes = true; // Coletar caixas verdes
+        @Option.Ignore
         public boolean collectRedBoxes = true; // Coletar caixas vermelhas
+        @Option.Ignore
         public boolean collectBlueBoxes = true; // Coletar caixas azuis
+        @Option.Ignore
         public boolean collectBonusBoxes = true; // Coletar caixas bonus
+        @Option.Ignore
         public boolean collectCargoBoxes = true; // Coletar caixas de cargo
     }
 
@@ -168,6 +173,7 @@ public class QuestConfig {
     // Gasto de Munição (para quests SPEND_AMMUNITION)
     // =========================================================================
 
+    @Option.Ignore
     public AmmoConfig ammo = new AmmoConfig();
 
     public static class AmmoConfig {
@@ -213,6 +219,7 @@ public class QuestConfig {
     // Matching de NPCs
     // =========================================================================
 
+    @Option.Ignore
     public NpcConfig npc = new NpcConfig();
 
     public static class NpcConfig {
