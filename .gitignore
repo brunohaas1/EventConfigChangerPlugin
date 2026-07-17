@@ -22,7 +22,6 @@
 
 # Third-party decompiled / extracted artifacts (not plugin source)
 core_decompiled/
-dmplugin_decompiled/
 jar_extract/
 .cursor/
 
@@ -35,10 +34,6 @@ hs_err_pid*
 .gradle/
 build/
 out/*
-DmPlugin.iml
-dmplugin.properties
-dmplugin.xml
-module_dmplugin.xml
 target/
 
 # Scratch and reference files
