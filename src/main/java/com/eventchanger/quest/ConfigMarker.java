@@ -264,9 +264,11 @@ public class ConfigMarker {
                 if (!info.getShouldKill()) {
                     info.setShouldKill(true);
                 }
-                if (info.getRadius() == 560.0) {
-                    info.setRadius(450.0);
-                    logger.logDebug("Ajustando raio de " + info.getName() + " de 560 para 450 para estabilizar tiro.");
+                // Garante que o raio de orbita fique dentro do range de ataque do laser.
+                // Se o raio está grande demais (>450), o bot fica circulando o NPC
+                // sem conseguir atacar porque está fora do alcance do laser.
+                if (info.getRadius() > 450.0) {
+                    info.setRadius(400.0);
                 }
             }
         }
