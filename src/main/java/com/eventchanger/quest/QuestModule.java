@@ -554,15 +554,29 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
 
         // CORREÇÃO DO "PING-PONG": Reseta acceptCycleComplete quando a quest ativa
         // é completada ou não existe mais (permite novo ciclo de aceite).
+        // MAS: só reseta se NÃO houver mais quests aceitas no cache para executar.
+        // Se ainda tem quests aceitas, o bot deve ir executá-las, não voltar ao Quest Giver.
         if (quest == null || !quest.isActive() || quest.isCompleted()) {
-            if (ctx.acceptCycleComplete) {
-                ctx.acceptCycleComplete = false;
-                ctx.acceptFailStreak = 0;
-                logger.logDebug("acceptCycleComplete resetado (quest completada/sem quest ativa)");
-            }
             java.util.List<? extends QuestListItem> allQuests = ctx.questAPI.getCurrestQuests();
             if (allQuests != null) {
                 questGiverInteraction.cacheAcceptedQuestTitles(allQuests);
+            }
+            // Conta quantas quests aceitas (não completadas) ainda existem
+            int activeAccepted = 0;
+            if (allQuests != null) {
+                for (QuestListItem q : allQuests) {
+                    if (q != null && !q.isCompleted() && !q.isActivable()) {
+                        activeAccepted++;
+                    }
+                }
+            }
+            if (ctx.acceptCycleComplete && activeAccepted == 0) {
+                ctx.acceptCycleComplete = false;
+                ctx.acceptFailStreak = 0;
+                logger.logDebug("acceptCycleComplete resetado (todas as quests aceitas foram concluidas)");
+            } else if (ctx.acceptCycleComplete && activeAccepted > 0) {
+                logger.logDebug("Quest completada mas ainda ha " + activeAccepted
+                        + " quests aceitas. Mantendo acceptCycleComplete=true para executar as restantes.");
             }
         }
 
