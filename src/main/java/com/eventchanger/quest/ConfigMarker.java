@@ -9,6 +9,7 @@ import eu.darkbot.api.managers.QuestAPI.Quest;
 import eu.darkbot.api.managers.QuestAPI.QuestListItem;
 import eu.darkbot.api.managers.QuestAPI.Requirement;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +21,84 @@ import java.util.Set;
  * trata troca de perfil sem desmarcar configs de outros perfis.
  */
 public class ConfigMarker {
+    private static final Map<String, Double> NPC_DEFAULT_RADII = new HashMap<>();
+    static {
+        // X-1 TO X-4 MAPS
+        NPC_DEFAULT_RADII.put("streuner", 450.0);
+        NPC_DEFAULT_RADII.put("lordakia", 450.0);
+        NPC_DEFAULT_RADII.put("saimon", 500.0);
+        NPC_DEFAULT_RADII.put("mordon", 500.0);
+        NPC_DEFAULT_RADII.put("devolarium", 536.0);
+        NPC_DEFAULT_RADII.put("sibelon", 530.0);
+        NPC_DEFAULT_RADII.put("boss streuner", 450.0);
+        NPC_DEFAULT_RADII.put("boss lordakia", 450.0);
+        NPC_DEFAULT_RADII.put("boss saimon", 500.0);
+        NPC_DEFAULT_RADII.put("boss mordon", 520.0);
+        NPC_DEFAULT_RADII.put("boss devolarium", 575.0);
+        NPC_DEFAULT_RADII.put("boss sibelon", 570.0);
+
+        // X-5 TO X-8 MAPS
+        NPC_DEFAULT_RADII.put("sibelonit", 575.0);
+        NPC_DEFAULT_RADII.put("lordakium", 610.0);
+        NPC_DEFAULT_RADII.put("kristallin", 575.0);
+        NPC_DEFAULT_RADII.put("kristallon", 600.0);
+        NPC_DEFAULT_RADII.put("strauner", 600.0);
+        NPC_DEFAULT_RADII.put("cubicon", 525.0);
+        NPC_DEFAULT_RADII.put("protegit", 525.0);
+        NPC_DEFAULT_RADII.put("boss sibelonit", 575.0);
+        NPC_DEFAULT_RADII.put("boss lordakium", 625.0);
+        NPC_DEFAULT_RADII.put("boss kristallin", 575.0);
+        NPC_DEFAULT_RADII.put("boss kristallon", 615.0);
+        NPC_DEFAULT_RADII.put("boss strauner", 600.0);
+
+        // UBER MAP
+        NPC_DEFAULT_RADII.put("uber streuner", 500.0);
+        NPC_DEFAULT_RADII.put("uber lordakia", 500.0);
+        NPC_DEFAULT_RADII.put("uber saimon", 500.0);
+        NPC_DEFAULT_RADII.put("uber simon", 500.0);
+        NPC_DEFAULT_RADII.put("uber mordon", 580.0);
+        NPC_DEFAULT_RADII.put("uber devolarium", 500.0);
+        NPC_DEFAULT_RADII.put("uber sibelon", 600.0);
+        NPC_DEFAULT_RADII.put("uber sibelonit", 575.0);
+        NPC_DEFAULT_RADII.put("uber lordakium", 600.0);
+        NPC_DEFAULT_RADII.put("uber kristallin", 580.0);
+        NPC_DEFAULT_RADII.put("uber kristallon", 625.0);
+        NPC_DEFAULT_RADII.put("uber strauner", 580.0);
+
+        // BL MAPS
+        NPC_DEFAULT_RADII.put("attend ix", 670.0);
+        NPC_DEFAULT_RADII.put("impulse ii", 615.0);
+
+        // PIRATE MAP 5-2
+        NPC_DEFAULT_RADII.put("saboteur", 580.0);
+        NPC_DEFAULT_RADII.put("interceptor", 500.0);
+        NPC_DEFAULT_RADII.put("barracuda", 560.0);
+        NPC_DEFAULT_RADII.put("annihilator", 575.0);
+
+        // MIMESIS EVENT
+        NPC_DEFAULT_RADII.put("raging mimes1s", 590.0);
+        NPC_DEFAULT_RADII.put("kamikaze mime5is", 580.0);
+        NPC_DEFAULT_RADII.put("cloning mim3sis", 590.0);
+        NPC_DEFAULT_RADII.put("cloned mim3sis", 590.0);
+        NPC_DEFAULT_RADII.put("terror mime5is", 610.0);
+        NPC_DEFAULT_RADII.put("hexor m1mesis", 590.0);
+        NPC_DEFAULT_RADII.put("reflector mimesi5", 670.0);
+    }
+
+    private Double getCorrectRadius(String npcKey) {
+        String norm = MissionMapLoader.normalize(npcKey);
+        // Direct match
+        Double radius = NPC_DEFAULT_RADII.get(norm);
+        if (radius != null) return radius;
+
+        // Fallback: partial match
+        for (Map.Entry<String, Double> entry : NPC_DEFAULT_RADII.entrySet()) {
+            if (norm.contains(entry.getKey())) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
 
     private final QuestContext ctx;
     private final QuestLogger logger;
@@ -238,6 +317,24 @@ public class ConfigMarker {
         applyDesiredNpcMarksIncremental(npcInfos, desiredNpcKeys);
         applyDesiredBoxMarksIncremental(boxInfos, desiredBoxKeys);
 
+        // Gerenciamento de raio dinâmico: se estamos atacando, usa o raio correto recomendado.
+        // Se NÃO estamos atacando, diminui o raio para 400 para aproximar do target para o primeiro tiro.
+        if (npcInfos != null) {
+            boolean isAttacking = ctx.attackAPI.isAttacking();
+            for (String key : ctx.lastAppliedNpcKeys) {
+                NpcInfo info = npcInfos.get(key);
+                if (info != null) {
+                    Double correctRadius = getCorrectRadius(key);
+                    if (correctRadius != null) {
+                        double targetRadius = (isAttacking && correctRadius > 450.0) ? correctRadius : Math.min(400.0, correctRadius);
+                        if (Math.abs(info.getRadius() - targetRadius) > 1.0) {
+                            info.setRadius(targetRadius);
+                        }
+                    }
+                }
+            }
+        }
+
         if (stateChanged && npcInfos != null && desiredNpcKeys.isEmpty()) {
             String questTitle = quest != null ? String.valueOf(quest.getTitle()) : "null";
             String reqInfo = ctx.currentReq != null
@@ -272,6 +369,10 @@ public class ConfigMarker {
             if (info != null) {
                 if (info.getShouldKill()) {
                     info.setShouldKill(false);
+                }
+                Double correctRadius = getCorrectRadius(key);
+                if (correctRadius != null) {
+                    info.setRadius(correctRadius);
                 }
             }
         }
