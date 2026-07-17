@@ -264,15 +264,6 @@ public class ConfigMarker {
                 if (!info.getShouldKill()) {
                     info.setShouldKill(true);
                 }
-                // Garante que o raio de orbita fique dentro do range de ataque do laser.
-                // Se o raio está grande demais (>450), o bot fica circulando o NPC
-                // sem conseguir atacar porque está fora do alcance do laser.
-                if (info.getRadius() > 450.0) {
-                    if (!ctx.originalNpcRadii.containsKey(key)) {
-                        ctx.originalNpcRadii.put(key, info.getRadius());
-                    }
-                    info.setRadius(400.0);
-                }
             }
         }
 
@@ -281,11 +272,6 @@ public class ConfigMarker {
             if (info != null) {
                 if (info.getShouldKill()) {
                     info.setShouldKill(false);
-                }
-                // Restaura o raio de órbita original se havia sido modificado
-                Double originalRadius = ctx.originalNpcRadii.remove(key);
-                if (originalRadius != null) {
-                    info.setRadius(originalRadius);
                 }
             }
         }
