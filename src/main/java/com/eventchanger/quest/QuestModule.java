@@ -167,16 +167,7 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         }
 
         // TESTE ISOLADO DA CADEIA DE CLIQUE: se o modo de teste estiver ativo,
-        // dispara cliques no centro do mapa (janela do QuestGiver fechada) para
-        // isolar se o mouseClick chega ao cliente. Roda ANTES de toda a lógica
-        // normal de quest, para não ser influenciado por estados de aceite.
-        if (ctx.config != null
-                && QuestConfig.QuestFlowConfig.CLICK_TEST_MODE != QuestConfig.ClickTestMode.OFF) {
-            questGiverInteraction.runClickTest(now);
-            // Em modo de teste, NÃO executa o resto da lógica de quest (evita
-            // interferência do aceite automático). Só o teste de clique roda.
-            return;
-        }
+
 
         // If quest cache is not initialized, fly to base and initialize it
         if (!ctx.questCacheInitialized) {
@@ -744,8 +735,8 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
     private boolean ammoChanged = false;
 
     private void handleSpendAmmunition(long now) {
-        if (ctx.config == null || !ctx.config.ammo.autoSpendAmmo) {
-            ctx.currentAction = "[Ammo] Auto-spend desativado nas configs.";
+        if (ctx.config == null) {
+            ctx.currentAction = "[Ammo] Configs indisponíveis.";
             return;
         }
 
@@ -761,8 +752,8 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
             lastAmmoChangeTime = now;
             ammoChanged = true;
             // Note: heroAPI has methods to change ammo, but exact API varies.
-            // If available: heroAPI.setLaser(ctx.config.ammo.spendAmmoLaser);
-            ctx.currentAction = "[Ammo] Trocando para laser L" + ctx.config.ammo.spendAmmoLaser + " para gastar munição...";
+            // If available: heroAPI.setLaser(4);
+            ctx.currentAction = "[Ammo] Trocando para laser L4 para gastar munição...";
         }
 
         // Delegate to LootCollectorModule to shoot at NPCs

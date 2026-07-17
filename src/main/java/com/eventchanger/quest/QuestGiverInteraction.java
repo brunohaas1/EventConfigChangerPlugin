@@ -665,62 +665,10 @@ public class QuestGiverInteraction {
         // --- Caminho: Main.API (mesma cadeia do plugin oficial, acoplada ao pid) ---
         Main.API.mouseMove(absX, absY);
         Main.API.mouseClick(absX, absY);
-        // --- Caminho B (só loga/executa se habilitado no teste): coreApi (Main.API) ---
-        // O teste de comparação (clickTestMode) decide se também dispara pelo coreApi.
         logger.logDiagnostic("[CLICK-CHAIN] DEPOIS mouseMove/mouseClick (via ctx.darkInput) | abs=(" + absX + "," + absY + ")");
     }
 
     /**
-     * TESTE ISOLADO DA CADEIA DE CLIQUE (janela do QuestGiver FECHADA).
-     *
-     * Clica no CENTRO do mapa (getViewBounds) usando o caminho selecionado em
-     * QuestConfig.QuestFlowConfig.CLICK_TEST_MODE:
-     *   - VIA_DARKINPUT: usa ctx.darkInput.mouseClick (caminho atual do plugin)
-     *   - VIA_CORE_API:  usa ctx.coreApi.mouseClick (Main.API)
-     *
-     * Se a nave começar a andar no VIA_CORE_API e NÃO andar no VIA_DARKINPUT,
-     * confirma que ctx.darkInput é uma instância DarkInput ÓRFÃ (nunca acoplada
-     * ao pid do cliente via openWindow), e por isso o clique nunca chega ao jogo.
-     *
-     * Throttled para 1 clique por segundo (não flooda nem trava o bot).
-     */
-    public void runClickTest(long now) {
-        if (ctx.config == null) return;
-        QuestConfig.ClickTestMode mode = QuestConfig.QuestFlowConfig.CLICK_TEST_MODE;
-        if (mode == null || mode == QuestConfig.ClickTestMode.OFF) return;
-
-        // Throttle: 1 clique por segundo.
-        if (now - ctx.lastClickTestTime < 1000) return;
-        ctx.lastClickTestTime = now;
-
-        GameScreenAPI gsa = ctx.pluginAPI.requireAPI(GameScreenAPI.class);
-        Area.Rectangle vb = gsa.getViewBounds();
-        if (vb == null) {
-            logger.logDiagnostic("[CLICK-TEST] IGNORADO: getViewBounds nulo.");
-            return;
-        }
-        int cx = (int) (vb.getWidth() / 2.0);
-        int cy = (int) (vb.getHeight() / 2.0);
-
-        int darkInputHash = (ctx.darkInput != null) ? System.identityHashCode(ctx.darkInput) : -1;
-        int coreApiHash = (ctx.coreApi != null) ? System.identityHashCode(ctx.coreApi) : -1;
-
-        if (mode == QuestConfig.ClickTestMode.VIA_DARKINPUT) {
-            logger.logDiagnostic("[CLICK-TEST] VIA_DARKINPUT click no centro (" + cx + "," + cy + ")"
-                    + " | darkInput hash=" + darkInputHash);
-            Main.API.mouseMove(cx, cy);
-            Main.API.mouseClick(cx, cy);
-        } else if (mode == QuestConfig.ClickTestMode.VIA_CORE_API) {
-            if (ctx.coreApi == null) {
-                logger.logDiagnostic("[CLICK-TEST] VIA_CORE_API IGNORADO: coreApi(Main.API) é null.");
-                return;
-            }
-            logger.logDiagnostic("[CLICK-TEST] VIA_CORE_API click no centro (" + cx + "," + cy + ")"
-                    + " | coreApi hash=" + coreApiHash);
-            ctx.coreApi.mouseMove(cx, cy);
-            ctx.coreApi.mouseClick(cx, cy);
-        }
-    }
 
     /**
      * Grade ABSOLUTA de posições relativas (0..1) cobrindo o canto INFERIOR-DIREITO

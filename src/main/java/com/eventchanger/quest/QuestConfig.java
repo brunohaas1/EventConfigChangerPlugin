@@ -59,21 +59,6 @@ public class QuestConfig {
 
         public static final boolean SCAN_ACCEPT_BUTTON = true;     // Varrer posições candidatas se o clique fixo falhar
         public static final boolean CALIBRATION_MODE = false;      // Modo de calibração
-        public static final ClickTestMode CLICK_TEST_MODE = ClickTestMode.OFF; // Teste de clique
-    }
-
-    /**
-     * Modos de teste de clique para isolar a cadeia de mouseClick.
-     *  - OFF: comportamento normal (usa ctx.darkInput, caminho atual do plugin).
-     *  - VIA_DARKINPUT: clica no centro do mapa usando ctx.darkInput (caminho atual).
-     *  - VIA_CORE_API: clica no centro do mapa usando Main.API.
-     * Com a janela do QuestGiver FECHADA, se a nave andar no VIA_CORE_API e NÃO
-     * andar no VIA_DARKINPUT, confirma que ctx.darkInput é uma instância órfã.
-     */
-    public enum ClickTestMode {
-        OFF,
-        VIA_DARKINPUT,
-        VIA_CORE_API
     }
 
     // =========================================================================
