@@ -78,52 +78,99 @@ public class QuestPanel {
         return l;
     }
 
+    private static class ReqData {
+        final boolean completed;
+        final Requirement.RequirementType type;
+        final String description;
+        final double progressPercentage;
+        final double progress;
+        final double goal;
+
+        ReqData(boolean completed, Requirement.RequirementType type, String description,
+                double progressPercentage, double progress, double goal) {
+            this.completed = completed;
+            this.type = type;
+            this.description = description;
+            this.progressPercentage = progressPercentage;
+            this.progress = progress;
+            this.goal = goal;
+        }
+    }
+
     public void updatePanel() {
         Quest quest = ctx.questAPI.getDisplayedQuest();
-
-        if (quest == null || !quest.isActive()) {
-            lblQuestTitle.setText("Nenhuma quest ativa");
-            lblQuestStatus.setText("--");
-            lblCurrentAction.setText(ctx.currentAction);
-            lblRewards.setText("");
-            requirementsPanel.removeAll();
-            requirementsPanel.revalidate();
-            requirementsPanel.repaint();
-            return;
-        }
-
-        lblQuestTitle.setText(quest.getTitle());
-        if (quest.isCompleted()) {
-            lblQuestStatus.setForeground(new Color(100, 220, 100));
-            lblQuestStatus.setText("COMPLETA!");
+        
+        final boolean active = quest != null && quest.isActive();
+        final String title = active ? quest.getTitle() : "Nenhuma quest ativa";
+        final boolean completed = quest != null && quest.isCompleted();
+        
+        final String statusText;
+        final Color statusColor;
+        if (!active) {
+            statusText = "--";
+            statusColor = new Color(200, 200, 200);
+        } else if (completed) {
+            statusText = "COMPLETA!";
+            statusColor = new Color(100, 220, 100);
         } else {
-            lblQuestStatus.setForeground(new Color(200, 200, 200));
             String mapInfo = (ctx.targetMap != null) ? " | Navegando -> " + ctx.targetMap.getName() : "";
-            lblQuestStatus.setText("Em andamento..." + mapInfo);
+            statusText = "Em andamento..." + mapInfo;
+            statusColor = new Color(200, 200, 200);
         }
-        lblCurrentAction.setText(ctx.currentAction);
-
-        requirementsPanel.removeAll();
-        java.util.List<? extends Requirement> reqs = quest.getRequirements();
-        if (reqs != null) {
-            for (Requirement req : reqs) {
+        
+        final String currentAction = ctx.currentAction;
+        
+        final java.util.List<ReqData> reqsData = new java.util.ArrayList<>();
+        if (active && quest.getRequirements() != null) {
+            for (Requirement req : quest.getRequirements()) {
                 if (!req.isEnabled()) continue;
+                reqsData.add(new ReqData(
+                    req.isCompleted(),
+                    req.getRequirementType(),
+                    req.getDescription(),
+                    req.getProgressPercentage(),
+                    req.getProgress(),
+                    req.getGoal()
+                ));
+            }
+        }
+        
+        final String rewardsText;
+        if (active && quest.getRewards() != null && !quest.getRewards().isEmpty()) {
+            StringBuilder sb = new StringBuilder("Recomp.: ");
+            for (QuestAPI.Reward r : quest.getRewards()) {
+                sb.append(r.getAmount()).append("x ").append(r.getType()).append("  ");
+            }
+            rewardsText = sb.toString().trim();
+        } else {
+            rewardsText = "";
+        }
+
+        SwingUtilities.invokeLater(() -> {
+            lblQuestTitle.setText(title);
+            lblQuestStatus.setText(statusText);
+            lblQuestStatus.setForeground(statusColor);
+            lblCurrentAction.setText(currentAction);
+            lblRewards.setText(rewardsText);
+            
+            requirementsPanel.removeAll();
+            for (ReqData rd : reqsData) {
                 JPanel row = new JPanel(new BorderLayout(4, 0));
                 row.setOpaque(false);
                 row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 20));
                 row.setMinimumSize(new Dimension(280, 20));
 
-                String typePrefix = getRequirementTypePrefix(req.getRequirementType());
-                String descText = (req.isCompleted() ? "[OK] " : "") + typePrefix + " " + req.getDescription();
-                JLabel desc = makeLabel(descText.trim(), req.isCompleted() ? Font.BOLD : Font.PLAIN, 10);
-                desc.setForeground(req.isCompleted() ? new Color(100, 220, 100) : Color.WHITE);
+                String typePrefix = getRequirementTypePrefix(rd.type);
+                String descText = (rd.completed ? "[OK] " : "") + typePrefix + " " + rd.description;
+                JLabel desc = makeLabel(descText.trim(), rd.completed ? Font.BOLD : Font.PLAIN, 10);
+                desc.setForeground(rd.completed ? new Color(100, 220, 100) : Color.WHITE);
                 desc.setMinimumSize(new Dimension(160, 16));
 
                 JProgressBar bar = new JProgressBar(0, 100);
-                bar.setValue((int) Math.min(100, req.getProgressPercentage()));
+                bar.setValue((int) Math.min(100, rd.progressPercentage));
                 bar.setStringPainted(true);
-                bar.setString(formatProgress(req.getProgress(), req.getGoal()));
-                bar.setForeground(req.isCompleted() ? new Color(100, 220, 100) : new Color(60, 120, 200));
+                bar.setString(formatProgress(rd.progress, rd.goal));
+                bar.setForeground(rd.completed ? new Color(100, 220, 100) : new Color(60, 120, 200));
                 bar.setPreferredSize(new Dimension(90, 16));
                 bar.setMinimumSize(new Dimension(90, 16));
 
@@ -131,21 +178,10 @@ public class QuestPanel {
                 row.add(bar, BorderLayout.EAST);
                 requirementsPanel.add(row);
             }
-        }
-
-        requirementsPanel.revalidate();
-        requirementsPanel.repaint();
-
-        java.util.List<? extends QuestAPI.Reward> rewards = quest.getRewards();
-        if (rewards != null && !rewards.isEmpty()) {
-            StringBuilder sb = new StringBuilder("Recomp.: ");
-            for (QuestAPI.Reward r : rewards) {
-                sb.append(r.getAmount()).append("x ").append(r.getType()).append("  ");
-            }
-            lblRewards.setText(sb.toString().trim());
-        } else {
-            lblRewards.setText("");
-        }
+            
+            requirementsPanel.revalidate();
+            requirementsPanel.repaint();
+        });
     }
 
     private void refreshMarkedNpcCounts() {

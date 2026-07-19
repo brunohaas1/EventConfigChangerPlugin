@@ -79,6 +79,7 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         if (ctx.config != null && !ctx.config.showStatusPanel) {
             return null;
         }
+        questPanel.updatePanel();
         return questPanel.getRootPanel();
     }
 
