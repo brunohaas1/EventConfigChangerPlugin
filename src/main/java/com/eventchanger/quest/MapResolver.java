@@ -365,13 +365,90 @@ public class MapResolver {
         // 3. Fallback text rules
         if (mapIds.isEmpty() && reqDesc != null && !reqDesc.isEmpty()) {
             String normalized = MissionMapLoader.normalize(reqDesc);
-            GameMap byTextRules = resolveMapFromNormalizedText(normalized, reqDesc, true);
-            if (byTextRules != null && !isMapBlacklisted(byTextRules)) {
-                mapIds.add(byTextRules.getId());
-            }
+            mapIds.addAll(getFallbackMapIdsForNpc(normalized));
         }
 
         return mapIds;
+    }
+
+    public java.util.Set<Integer> getFallbackMapIdsForNpc(String cleanReq) {
+        java.util.Set<Integer> ids = new java.util.HashSet<>();
+        if (cleanReq == null || cleanReq.isEmpty()) return ids;
+
+        // Determine company maps based on faction
+        String x2 = "1-2", x3 = "1-3", x4 = "1-4", x5 = "1-5", x6 = "1-6", x7 = "1-7", x8 = "1-8";
+        if (ctx.heroAPI.getEntityInfo() != null && ctx.heroAPI.getEntityInfo().getFaction() != null) {
+            switch (ctx.heroAPI.getEntityInfo().getFaction()) {
+                case EIC:
+                    x2 = "2-2"; x3 = "2-3"; x4 = "2-4"; x5 = "2-5"; x6 = "2-6"; x7 = "2-7"; x8 = "2-8";
+                    break;
+                case VRU:
+                    x2 = "3-2"; x3 = "3-3"; x4 = "3-4"; x5 = "3-5"; x6 = "3-6"; x7 = "3-7"; x8 = "3-8";
+                    break;
+            }
+        }
+
+        // Add maps to the set
+        if (cleanReq.contains("uber")) {
+            if (cleanReq.contains("interceptor") || cleanReq.contains("barracuda") ||
+                cleanReq.contains("saboteur") || cleanReq.contains("annihilator")) {
+                addMapId(ids, "5-2");
+            } else {
+                addMapId(ids, "4-5");
+            }
+            return ids;
+        }
+
+        // Bosses
+        if (cleanReq.contains("boss")) {
+            if (cleanReq.contains("kristallon") || cleanReq.contains("kristallin") || 
+                cleanReq.contains("protegit") || cleanReq.contains("cubikon")) {
+                addMapId(ids, x7);
+                addMapId(ids, "4-5");
+            } else if (cleanReq.contains("sibelonit") || cleanReq.contains("lordakium")) {
+                addMapId(ids, x5);
+                addMapId(ids, "4-5");
+            } else if (cleanReq.contains("sibelon")) {
+                addMapId(ids, x4);
+                addMapId(ids, "4-5");
+            } else if (cleanReq.contains("devolarium")) {
+                addMapId(ids, x3);
+                addMapId(ids, "4-5");
+            } else if (cleanReq.contains("mordon") || cleanReq.contains("saimon")) {
+                addMapId(ids, x3);
+                addMapId(ids, "4-5");
+            } else if (cleanReq.contains("streuner") || cleanReq.contains("lordakia")) {
+                addMapId(ids, x2);
+                addMapId(ids, "4-5");
+            }
+            return ids;
+        }
+
+        // Normal NPCs
+        if (cleanReq.contains("kristallin") || cleanReq.contains("kristallon") || 
+            cleanReq.contains("cubikon") || cleanReq.contains("protegit")) {
+            addMapId(ids, x6);
+            addMapId(ids, "4-5");
+        } else if (cleanReq.contains("sibelonit") || cleanReq.contains("lordakium")) {
+            addMapId(ids, x5);
+            addMapId(ids, "4-5");
+        } else if (cleanReq.contains("sibelon")) {
+            addMapId(ids, x4);
+            addMapId(ids, "4-5");
+        } else if (cleanReq.contains("mordon") || cleanReq.contains("saimon") || cleanReq.contains("devolarium")) {
+            addMapId(ids, x3);
+        } else if (cleanReq.contains("lordakia") || cleanReq.contains("streuner")) {
+            addMapId(ids, x2);
+        }
+
+        return ids;
+    }
+
+    private void addMapId(java.util.Set<Integer> ids, String mapName) {
+        Optional<GameMap> m = ctx.starSystemAPI.findMap(mapName);
+        if (m.isPresent() && !isMapBlacklisted(m.get())) {
+            ids.add(m.get().getId());
+        }
     }
 
     /**
