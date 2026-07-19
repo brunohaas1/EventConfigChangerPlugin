@@ -375,9 +375,15 @@ public class ConfigMarker {
             if (!ctx.petAPI.isEnabled()) {
                 ctx.petAPI.setEnabled(true);
             }
-            if (ctx.petAPI.getGear() != eu.darkbot.api.game.enums.PetGear.ENEMY_LOCATOR) {
-                ctx.petAPI.setGear(eu.darkbot.api.game.enums.PetGear.ENEMY_LOCATOR);
-                logger.logDebug("Ativando Enemy Locator no PET para buscar Boss/Uber");
+
+            if (ctx.petAPI instanceof com.github.manolo8.darkbot.core.manager.PetManager) {
+                com.github.manolo8.darkbot.core.manager.PetManager petManager = (com.github.manolo8.darkbot.core.manager.PetManager) ctx.petAPI;
+                petManager.setOverride(eu.darkbot.api.game.enums.PetGear.ENEMY_LOCATOR.getId());
+            } else {
+                if (ctx.petAPI.getGear() != eu.darkbot.api.game.enums.PetGear.ENEMY_LOCATOR) {
+                    ctx.petAPI.setGear(eu.darkbot.api.game.enums.PetGear.ENEMY_LOCATOR);
+                    logger.logDebug("Ativando Enemy Locator no PET para buscar Boss/Uber");
+                }
             }
         } catch (Exception e) {
             logger.logDebug("Erro ao ativar localizador de PET: " + e.getMessage());
@@ -391,8 +397,18 @@ public class ConfigMarker {
                 if (ctx.petAPI.isEnabled() != ctx.originalPetEnabled) {
                     ctx.petAPI.setEnabled(ctx.originalPetEnabled);
                 }
-                if (ctx.originalPetGear != null && ctx.petAPI.getGear() != ctx.originalPetGear) {
-                    ctx.petAPI.setGear(ctx.originalPetGear);
+                
+                if (ctx.petAPI instanceof com.github.manolo8.darkbot.core.manager.PetManager) {
+                    com.github.manolo8.darkbot.core.manager.PetManager petManager = (com.github.manolo8.darkbot.core.manager.PetManager) ctx.petAPI;
+                    if (ctx.originalPetGear != null) {
+                        petManager.setOverride(ctx.originalPetGear.getId());
+                    } else {
+                        petManager.setOverride((Integer) null);
+                    }
+                } else {
+                    if (ctx.originalPetGear != null && ctx.petAPI.getGear() != ctx.originalPetGear) {
+                        ctx.petAPI.setGear(ctx.originalPetGear);
+                    }
                 }
                 logger.logDebug("Restaurando estado original do PET: enabled=" + ctx.originalPetEnabled + ", gear=" + ctx.originalPetGear);
             } catch (Exception e) {
