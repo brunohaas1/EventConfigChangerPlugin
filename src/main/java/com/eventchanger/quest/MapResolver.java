@@ -425,16 +425,14 @@ public class MapResolver {
         }
 
         // Normal NPCs
-        if (cleanReq.contains("kristallin") || cleanReq.contains("kristallon") || 
-            cleanReq.contains("cubikon") || cleanReq.contains("protegit")) {
+        if (cleanReq.contains("kristallin") || cleanReq.contains("kristallon")) {
+            addMapId(ids, x7);
+        } else if (cleanReq.contains("cubikon") || cleanReq.contains("protegit")) {
             addMapId(ids, x6);
-            addMapId(ids, "4-5");
         } else if (cleanReq.contains("sibelonit") || cleanReq.contains("lordakium")) {
             addMapId(ids, x5);
-            addMapId(ids, "4-5");
         } else if (cleanReq.contains("sibelon")) {
             addMapId(ids, x4);
-            addMapId(ids, "4-5");
         } else if (cleanReq.contains("mordon") || cleanReq.contains("saimon") || cleanReq.contains("devolarium")) {
             addMapId(ids, x3);
         } else if (cleanReq.contains("lordakia") || cleanReq.contains("streuner")) {
@@ -785,10 +783,12 @@ public class MapResolver {
         if (cleanReq.contains("sibelon"))     return getCompanyMap("1-4", "2-4", "3-4");
 
         // Map X-6 / 1-6
-        if (cleanReq.contains("kristallin"))  return getCompanyMap("1-6", "2-6", "3-6");
-        if (cleanReq.contains("kristallon"))  return getCompanyMap("1-6", "2-6", "3-6");
         if (cleanReq.contains("cubikon"))     return getCompanyMap("1-6", "2-6", "3-6");
         if (cleanReq.contains("protegit"))    return getCompanyMap("1-6", "2-6", "3-6");
+
+        // Map X-7 / 1-7
+        if (cleanReq.contains("kristallin"))  return getCompanyMap("1-7", "2-7", "3-7");
+        if (cleanReq.contains("kristallon"))  return getCompanyMap("1-7", "2-7", "3-7");
 
         // Map 4-2
         if (cleanReq.contains("ogatra"))      return ctx.starSystemAPI.findMap("4-2").orElse(null);

@@ -126,6 +126,13 @@ public class NpcBoxMatcher {
             }
         }
 
+        // Regra especial para diferenciar Plague Kristallin / Plague Kristallon de Kristallin / Kristallon normais
+        boolean npcIsPlague = normNpc.contains("plague") || normNpc.contains("praga");
+        boolean questIsPlague = normDesc.contains("plague") || normDesc.contains("praga");
+        if (npcIsPlague != questIsPlague) {
+            return false;
+        }
+
         // Remove common prefix/suffix symbols from NPC name (e.g. -=[, ]=-, ..::, ::..)
         normNpc = normNpc.replaceAll("^[ -=\\.:\\*]+|[ -=\\.:\\*]+$", "").trim();
 
