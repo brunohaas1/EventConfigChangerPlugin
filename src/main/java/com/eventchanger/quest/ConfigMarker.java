@@ -123,6 +123,22 @@ public class ConfigMarker {
             return;
         }
 
+        // PET Enemy Locator logic for Boss / Uber (runs every tick so UI configuration toggles react instantly)
+        boolean isBossOrUberKill = false;
+        if (ctx.config != null && ctx.config.pet.useLocatorForBossUber && ctx.currentReq != null) {
+            Requirement.RequirementType type = ctx.currentReq.getRequirementType();
+            if (isKillType(type) && ctx.currentReq.getDescription() != null) {
+                String descLower = ctx.currentReq.getDescription().toLowerCase();
+                isBossOrUberKill = descLower.contains("boss") || descLower.contains("uber");
+            }
+        }
+
+        if (isBossOrUberKill) {
+            enablePetLocator();
+        } else {
+            disablePetLocatorIfEnabled();
+        }
+
         long now = System.currentTimeMillis();
         boolean forceUpdate = (ctx.lastTargetMapId == null) || (targetMap.getId() != ctx.lastTargetMapId);
 
@@ -343,22 +359,6 @@ public class ConfigMarker {
             logger.appendPluginLog("[QuestModule] nenhum NPC marcado | quest='" + questTitle
                     + "' | targetMap='" + targetMap.getName() + "' | req='" + reqInfo
                     + "' | reqState='" + currentReqState + "'");
-        }
-
-        // PET Enemy Locator logic for Boss / Uber
-        boolean isBossOrUberKill = false;
-        if (ctx.config != null && ctx.config.pet.useLocatorForBossUber && ctx.currentReq != null) {
-            Requirement.RequirementType type = ctx.currentReq.getRequirementType();
-            if (isKillType(type) && ctx.currentReq.getDescription() != null) {
-                String descLower = ctx.currentReq.getDescription().toLowerCase();
-                isBossOrUberKill = descLower.contains("boss") || descLower.contains("uber");
-            }
-        }
-
-        if (isBossOrUberKill) {
-            enablePetLocator();
-        } else {
-            disablePetLocatorIfEnabled();
         }
     }
 
