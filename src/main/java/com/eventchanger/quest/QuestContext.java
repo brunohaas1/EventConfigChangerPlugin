@@ -15,6 +15,8 @@ import eu.darkbot.api.managers.OreAPI;
 import eu.darkbot.api.managers.QuestAPI;
 import eu.darkbot.api.managers.StarSystemAPI;
 import eu.darkbot.api.managers.StatsAPI;
+import eu.darkbot.api.managers.PetAPI;
+import eu.darkbot.api.game.enums.PetGear;
 import eu.darkbot.api.managers.QuestAPI.Requirement;
 import eu.darkbot.api.managers.QuestAPI.Requirement.RequirementType;
 import eu.darkbot.shared.modules.LootCollectorModule;
@@ -55,11 +57,17 @@ public class QuestContext {
     public final BotAPI botAPI;
     public final DarkInput darkInput;
     public final AttackAPI attackAPI;
+    public final PetAPI petAPI;
     // Caminho de clique do CORE (Main.API), usado por nós no teste
     // de comparação. É a instância de IDarkBotAPI real, com a interação nativa
     // ACOPLADA ao pid do cliente do jogo (ao contrário de ctx.darkInput, que é uma
     // instância DarkInput órfã criada pelo PluginApiImpl e nunca acoplada).
     public final IDarkBotAPI coreApi;
+
+    // ---- Original PET State ----
+    public boolean hasSavedOriginalPetState = false;
+    public boolean originalPetEnabled = false;
+    public PetGear originalPetGear = null;
 
     // ---- Config ----
     public QuestConfig config;
@@ -436,6 +444,7 @@ public class QuestContext {
         this.botAPI = api.requireAPI(BotAPI.class);
         this.darkInput = (DarkInput) api.requireInstance(DarkInput.class);
         this.attackAPI = api.requireAPI(AttackAPI.class);
+        this.petAPI = api.requireAPI(PetAPI.class);
         this.questGui = null;
         // Captura a instância real do core (Main.API). Se for null, o bot ainda
         // não terminou de inicializar a API — mas em runtime ela estará presente.

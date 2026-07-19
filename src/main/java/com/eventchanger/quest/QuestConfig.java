@@ -190,6 +190,19 @@ public class QuestConfig {
         public Character pvpAmmoKey = Character.valueOf('4'); // Tecla de munição para PVP (ex: 4)
     }
 
+    // =========================================================================
+    // PET (para rastreamento de Bosses e Ubers)
+    // =========================================================================
+
+    @Option("quest_module.pet")
+    public PetConfig pet = new PetConfig();
+
+    public static class PetConfig {
+
+        @Option("quest_module.pet.use_locator_for_boss_uber")
+        public boolean useLocatorForBossUber = false; // Usar localizador de inimigos para Boss/Uber
+    }
+
     public static class PvpMapOptions implements Dropdown.Options<String> {
         @Override
         public List<String> options() {

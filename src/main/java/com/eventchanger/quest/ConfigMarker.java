@@ -344,6 +344,62 @@ public class ConfigMarker {
                     + "' | targetMap='" + targetMap.getName() + "' | req='" + reqInfo
                     + "' | reqState='" + currentReqState + "'");
         }
+
+        // PET Enemy Locator logic for Boss / Uber
+        boolean isBossOrUberKill = false;
+        if (ctx.config != null && ctx.config.pet.useLocatorForBossUber && ctx.currentReq != null) {
+            Requirement.RequirementType type = ctx.currentReq.getRequirementType();
+            if (isKillType(type) && ctx.currentReq.getDescription() != null) {
+                String descLower = ctx.currentReq.getDescription().toLowerCase();
+                isBossOrUberKill = descLower.contains("boss") || descLower.contains("uber");
+            }
+        }
+
+        if (isBossOrUberKill) {
+            enablePetLocator();
+        } else {
+            disablePetLocatorIfEnabled();
+        }
+    }
+
+    private void enablePetLocator() {
+        if (ctx.petAPI == null) return;
+        try {
+            if (!ctx.hasSavedOriginalPetState) {
+                ctx.originalPetEnabled = ctx.petAPI.isEnabled();
+                ctx.originalPetGear = ctx.petAPI.getGear();
+                ctx.hasSavedOriginalPetState = true;
+                logger.logDebug("Salvando estado original do PET: enabled=" + ctx.originalPetEnabled + ", gear=" + ctx.originalPetGear);
+            }
+            
+            if (!ctx.petAPI.isEnabled()) {
+                ctx.petAPI.setEnabled(true);
+            }
+            if (ctx.petAPI.getGear() != eu.darkbot.api.game.enums.PetGear.ENEMY_LOCATOR) {
+                ctx.petAPI.setGear(eu.darkbot.api.game.enums.PetGear.ENEMY_LOCATOR);
+                logger.logDebug("Ativando Enemy Locator no PET para buscar Boss/Uber");
+            }
+        } catch (Exception e) {
+            logger.logDebug("Erro ao ativar localizador de PET: " + e.getMessage());
+        }
+    }
+
+    private void disablePetLocatorIfEnabled() {
+        if (ctx.petAPI == null) return;
+        if (ctx.hasSavedOriginalPetState) {
+            try {
+                if (ctx.petAPI.isEnabled() != ctx.originalPetEnabled) {
+                    ctx.petAPI.setEnabled(ctx.originalPetEnabled);
+                }
+                if (ctx.originalPetGear != null && ctx.petAPI.getGear() != ctx.originalPetGear) {
+                    ctx.petAPI.setGear(ctx.originalPetGear);
+                }
+                logger.logDebug("Restaurando estado original do PET: enabled=" + ctx.originalPetEnabled + ", gear=" + ctx.originalPetGear);
+            } catch (Exception e) {
+                logger.logDebug("Erro ao restaurar PET: " + e.getMessage());
+            }
+            ctx.hasSavedOriginalPetState = false;
+        }
     }
 
     private void applyDesiredNpcMarksIncremental(Map<String, NpcInfo> npcInfos, Set<String> desiredNpcKeys) {
@@ -474,6 +530,7 @@ public class ConfigMarker {
         ctx.lastDesiredNpcKeys.clear();
         ctx.lastDesiredBoxKeys.clear();
         ctx.lastRequirementState = "";
+        disablePetLocatorIfEnabled();
     }
 
     private boolean isBoxAllowedByLootConfig(String boxNameLower) {
