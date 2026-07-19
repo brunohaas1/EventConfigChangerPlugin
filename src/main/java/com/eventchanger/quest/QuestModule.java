@@ -399,7 +399,7 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
                 if (calculatedTargetMap != ctx.tempTargetMap) {
                     ctx.tempTargetMap = calculatedTargetMap;
                     ctx.targetMapChangeTime = now;
-                } else if (now - ctx.targetMapChangeTime >= 3000) {
+                } else if (now - ctx.targetMapChangeTime >= 2000) {
                     ctx.stableTargetMap = calculatedTargetMap;
                     ctx.targetMap = calculatedTargetMap;
                 } else {

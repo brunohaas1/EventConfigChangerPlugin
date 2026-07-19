@@ -45,7 +45,7 @@ public class QuestConfig {
 
     public static class QuestFlowConfig {
         public static final boolean AUTO_ACCEPT = true;            // Aceitar quests automaticamente
-        public static final int ACCEPT_INTERVAL_MS = 3000;         // Intervalo entre tentativas de aceitar (ms)
+        public static final int ACCEPT_INTERVAL_MS = 2000;         // Intervalo entre tentativas de aceitar (ms)
         public static final boolean KEEP_SECONDARY_QUESTS_MARKED = true; // Manter NPCs de quests secundárias marcados
         public static final boolean AUTO_DELIVER = true;           // Entregar quests automaticamente
         public static final int MAX_QUESTS_PER_MAP = 5;            // Máximo de quests por mapa

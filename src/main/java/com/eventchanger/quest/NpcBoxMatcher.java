@@ -66,16 +66,19 @@ public class NpcBoxMatcher {
     public boolean matchesCustomAlias(String normalizedNpc, String normalizedQuestDesc) {
         if (normalizedNpc == null || normalizedQuestDesc == null || ctx.customNpcAliases.isEmpty()) return false;
 
+        java.util.Set<String> npcWords = new java.util.HashSet<>(java.util.Arrays.asList(normalizedNpc.split(" ")));
+        java.util.Set<String> descWords = new java.util.HashSet<>(java.util.Arrays.asList(normalizedQuestDesc.split(" ")));
+
         for (Map.Entry<String, Set<String>> e : ctx.customNpcAliases.entrySet()) {
             String npcKey = e.getKey();
             Set<String> aliases = e.getValue();
             if (aliases == null || aliases.isEmpty()) continue;
 
-            boolean npcSideMatches = normalizedNpc.contains(npcKey)
-                    || aliases.stream().anyMatch(a -> !a.isEmpty() && normalizedNpc.contains(a));
+            boolean npcSideMatches = npcWords.contains(npcKey)
+                    || aliases.stream().anyMatch(a -> !a.isEmpty() && npcWords.contains(a));
             if (!npcSideMatches) continue;
 
-            boolean descSideMatches = aliases.stream().anyMatch(a -> !a.isEmpty() && normalizedQuestDesc.contains(a));
+            boolean descSideMatches = aliases.stream().anyMatch(a -> !a.isEmpty() && descWords.contains(a));
             if (descSideMatches) return true;
         }
 
@@ -100,6 +103,25 @@ public class NpcBoxMatcher {
             boolean npcIsStreunerR = npcName.contains("StreuneR") || npcName.contains("StreunerR") || npcName.toLowerCase().contains("streuner-r") || npcName.toLowerCase().contains("streuner r");
             boolean questIsStreunerR = questDesc.contains("StreuneR") || questDesc.contains("StreunerR") || questDesc.toLowerCase().contains("streuner-r") || questDesc.toLowerCase().contains("streuner r");
             if (npcIsStreunerR != questIsStreunerR) {
+                return false;
+            }
+        }
+
+        // Regra especial para diferenciar Kristallin de Kristallon
+        if (normNpc.contains("kristall")) {
+            boolean npcIsKristallin = normNpc.contains("kristallin");
+            boolean npcIsKristallon = normNpc.contains("kristallon");
+            boolean questIsKristallin = normDesc.contains("kristallin");
+            boolean questIsKristallon = normDesc.contains("kristallon");
+            if (npcIsKristallin && !questIsKristallin) return false;
+            if (npcIsKristallon && !questIsKristallon) return false;
+        }
+
+        // Regra especial para diferenciar Sibelon de Sibelonit
+        if (normNpc.contains("sibelon")) {
+            boolean npcIsSibelonit = normNpc.contains("sibelonit");
+            boolean questIsSibelonit = normDesc.contains("sibelonit");
+            if (npcIsSibelonit != questIsSibelonit) {
                 return false;
             }
         }
