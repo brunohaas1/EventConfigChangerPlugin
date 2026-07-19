@@ -365,56 +365,46 @@ public class ConfigMarker {
     private void enablePetLocator() {
         if (ctx.petAPI == null) return;
         try {
-            if (!ctx.hasSavedOriginalPetState) {
-                ctx.originalPetEnabled = ctx.petAPI.isEnabled();
-                ctx.originalPetGear = ctx.petAPI.getGear();
-                ctx.hasSavedOriginalPetState = true;
-                logger.logDebug("Salvando estado original do PET: enabled=" + ctx.originalPetEnabled + ", gear=" + ctx.originalPetGear);
-            }
-            
-            if (!ctx.petAPI.isEnabled()) {
-                ctx.petAPI.setEnabled(true);
-            }
+            com.github.manolo8.darkbot.config.Config botConfig = com.github.manolo8.darkbot.Main.INSTANCE.config;
+            if (botConfig != null && botConfig.PET != null) {
+                if (!ctx.hasSavedOriginalPetConfig) {
+                    ctx.originalPetConfigEnabled = botConfig.PET.ENABLED;
+                    ctx.originalPetConfigModuleId = botConfig.PET.MODULE_ID;
+                    ctx.hasSavedOriginalPetConfig = true;
+                    logger.logDebug("Salvando config original do PET no bot: enabled=" + ctx.originalPetConfigEnabled + ", module=" + ctx.originalPetConfigModuleId);
+                }
 
-            if (ctx.petAPI instanceof com.github.manolo8.darkbot.core.manager.PetManager) {
-                com.github.manolo8.darkbot.core.manager.PetManager petManager = (com.github.manolo8.darkbot.core.manager.PetManager) ctx.petAPI;
-                petManager.setOverride(eu.darkbot.api.game.enums.PetGear.ENEMY_LOCATOR.getId());
-            } else {
-                if (ctx.petAPI.getGear() != eu.darkbot.api.game.enums.PetGear.ENEMY_LOCATOR) {
-                    ctx.petAPI.setGear(eu.darkbot.api.game.enums.PetGear.ENEMY_LOCATOR);
-                    logger.logDebug("Ativando Enemy Locator no PET para buscar Boss/Uber");
+                if (!botConfig.PET.ENABLED) {
+                    botConfig.PET.ENABLED = true;
+                }
+                if (botConfig.PET.MODULE_ID != eu.darkbot.api.game.enums.PetGear.ENEMY_LOCATOR) {
+                    botConfig.PET.MODULE_ID = eu.darkbot.api.game.enums.PetGear.ENEMY_LOCATOR;
+                    logger.logDebug("Configurando PET do bot para Enemy Locator");
                 }
             }
         } catch (Exception e) {
-            logger.logDebug("Erro ao ativar localizador de PET: " + e.getMessage());
+            logger.logDebug("Erro ao configurar PET no bot: " + e.getMessage());
         }
     }
 
     private void disablePetLocatorIfEnabled() {
         if (ctx.petAPI == null) return;
-        if (ctx.hasSavedOriginalPetState) {
+        if (ctx.hasSavedOriginalPetConfig) {
             try {
-                if (ctx.petAPI.isEnabled() != ctx.originalPetEnabled) {
-                    ctx.petAPI.setEnabled(ctx.originalPetEnabled);
-                }
-                
-                if (ctx.petAPI instanceof com.github.manolo8.darkbot.core.manager.PetManager) {
-                    com.github.manolo8.darkbot.core.manager.PetManager petManager = (com.github.manolo8.darkbot.core.manager.PetManager) ctx.petAPI;
-                    if (ctx.originalPetGear != null) {
-                        petManager.setOverride(ctx.originalPetGear.getId());
-                    } else {
-                        petManager.setOverride((Integer) null);
+                com.github.manolo8.darkbot.config.Config botConfig = com.github.manolo8.darkbot.Main.INSTANCE.config;
+                if (botConfig != null && botConfig.PET != null) {
+                    if (botConfig.PET.ENABLED != ctx.originalPetConfigEnabled) {
+                        botConfig.PET.ENABLED = ctx.originalPetConfigEnabled;
                     }
-                } else {
-                    if (ctx.originalPetGear != null && ctx.petAPI.getGear() != ctx.originalPetGear) {
-                        ctx.petAPI.setGear(ctx.originalPetGear);
+                    if (botConfig.PET.MODULE_ID != ctx.originalPetConfigModuleId) {
+                        botConfig.PET.MODULE_ID = ctx.originalPetConfigModuleId;
                     }
+                    logger.logDebug("Restaurando config original do PET no bot: enabled=" + ctx.originalPetConfigEnabled + ", module=" + ctx.originalPetConfigModuleId);
                 }
-                logger.logDebug("Restaurando estado original do PET: enabled=" + ctx.originalPetEnabled + ", gear=" + ctx.originalPetGear);
             } catch (Exception e) {
-                logger.logDebug("Erro ao restaurar PET: " + e.getMessage());
+                logger.logDebug("Erro ao restaurar config do PET no bot: " + e.getMessage());
             }
-            ctx.hasSavedOriginalPetState = false;
+            ctx.hasSavedOriginalPetConfig = false;
         }
     }
 

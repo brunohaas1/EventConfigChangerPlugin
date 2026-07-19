@@ -64,10 +64,10 @@ public class QuestContext {
     // instância DarkInput órfã criada pelo PluginApiImpl e nunca acoplada).
     public final IDarkBotAPI coreApi;
 
-    // ---- Original PET State ----
-    public boolean hasSavedOriginalPetState = false;
-    public boolean originalPetEnabled = false;
-    public PetGear originalPetGear = null;
+    // ---- Original PET Config State ----
+    public boolean hasSavedOriginalPetConfig = false;
+    public boolean originalPetConfigEnabled = false;
+    public PetGear originalPetConfigModuleId = null;
 
     // ---- Config ----
     public QuestConfig config;
