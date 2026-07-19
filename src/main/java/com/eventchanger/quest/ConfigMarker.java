@@ -349,31 +349,54 @@ public class ConfigMarker {
     private void applyDesiredNpcMarksIncremental(Map<String, NpcInfo> npcInfos, Set<String> desiredNpcKeys) {
         if (npcInfos == null) return;
 
-        Set<String> toEnable = new HashSet<>(desiredNpcKeys);
-        toEnable.removeAll(ctx.lastAppliedNpcKeys);
+        if (!desiredNpcKeys.isEmpty()) {
+            // 1. Save original enabled NPCs if we haven't done so yet.
+            if (!ctx.hasSavedOriginalNpcs) {
+                ctx.originalEnabledNpcs.clear();
+                for (Map.Entry<String, NpcInfo> entry : npcInfos.entrySet()) {
+                    if (entry.getValue() != null && entry.getValue().getShouldKill()) {
+                        ctx.originalEnabledNpcs.add(entry.getKey());
+                    }
+                }
+                ctx.hasSavedOriginalNpcs = true;
+            }
 
-        Set<String> toDisable = new HashSet<>(ctx.lastAppliedNpcKeys);
-        toDisable.removeAll(desiredNpcKeys);
-
-        for (String key : toEnable) {
-            NpcInfo info = npcInfos.get(key);
-            if (info != null) {
-                if (!info.getShouldKill()) {
-                    info.setShouldKill(true);
+            // 2. Set only desired NPCs to true, and all others to false.
+            for (Map.Entry<String, NpcInfo> entry : npcInfos.entrySet()) {
+                String key = entry.getKey();
+                NpcInfo info = entry.getValue();
+                if (info != null) {
+                    boolean shouldKill = desiredNpcKeys.contains(key);
+                    if (info.getShouldKill() != shouldKill) {
+                        info.setShouldKill(shouldKill);
+                        if (!shouldKill) {
+                            Double correctRadius = getCorrectRadius(key);
+                            if (correctRadius != null) {
+                                info.setRadius(correctRadius);
+                            }
+                        }
+                    }
                 }
             }
-        }
-
-        for (String key : toDisable) {
-            NpcInfo info = npcInfos.get(key);
-            if (info != null) {
-                if (info.getShouldKill()) {
-                    info.setShouldKill(false);
+        } else {
+            // No active quest NPCs: restore user's original configuration if saved.
+            if (ctx.hasSavedOriginalNpcs) {
+                for (Map.Entry<String, NpcInfo> entry : npcInfos.entrySet()) {
+                    String key = entry.getKey();
+                    NpcInfo info = entry.getValue();
+                    if (info != null) {
+                        boolean shouldKill = ctx.originalEnabledNpcs.contains(key);
+                        if (info.getShouldKill() != shouldKill) {
+                            info.setShouldKill(shouldKill);
+                        }
+                        Double correctRadius = getCorrectRadius(key);
+                        if (correctRadius != null) {
+                            info.setRadius(correctRadius);
+                        }
+                    }
                 }
-                Double correctRadius = getCorrectRadius(key);
-                if (correctRadius != null) {
-                    info.setRadius(correctRadius);
-                }
+                ctx.originalEnabledNpcs.clear();
+                ctx.hasSavedOriginalNpcs = false;
             }
         }
 

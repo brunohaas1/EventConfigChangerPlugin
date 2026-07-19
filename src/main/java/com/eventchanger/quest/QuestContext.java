@@ -393,6 +393,8 @@ public class QuestContext {
     public GameMap tempTargetMap = null;
     public GameMap stableTargetMap = null;
     public long targetMapChangeTime = 0L;
+    public final Set<String> originalEnabledNpcs = new HashSet<>();
+    public boolean hasSavedOriginalNpcs = false;
 
     // ---- Otimizações de performance e controle de estados ----
     public long lastConfigUpdateRunTime = 0L;
