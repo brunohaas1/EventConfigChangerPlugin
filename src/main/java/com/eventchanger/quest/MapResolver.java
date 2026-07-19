@@ -499,6 +499,12 @@ public class MapResolver {
     private GameMap pickClosestNpcMap(Set<Integer> mapIds) {
         if (mapIds == null || mapIds.isEmpty()) return null;
 
+        // ESTABILIDADE: Se o nosso mapa de destino atual já está na lista de candidatos válidos,
+        // mantemos ele! Isso evita que o bot mude de ideia durante o vôo se a distância mudar.
+        if (ctx.targetMap != null && mapIds.contains(ctx.targetMap.getId())) {
+            return ctx.targetMap;
+        }
+
         GameMap current = ctx.heroAPI.getMap();
         GameMap best = null;
         double bestCost = Double.MAX_VALUE;
@@ -514,14 +520,19 @@ public class MapResolver {
                 return map;
             }
 
-            // 2) Custo = distância até o próximo portal na rota até esse mapa.
-            //    Mapas inalcançáveis (findNext == null) são descartados.
+            // 2) Custo = distância do centro do mapa até o próximo portal na rota até esse mapa.
+            //    Usamos o centro do mapa (10400, 6500) como referência estática em vez da posição do Heroi
+            //    para que o custo seja constante e não mude conforme o bot se move.
             Portal next = ctx.starSystemAPI.findNext(map);
             if (next == null) continue;
-            double cost = next.distanceTo(ctx.heroAPI);
+            double cost = next.distanceTo(10400.0, 6500.0);
             if (cost < bestCost) {
                 bestCost = cost;
                 best = map;
+            } else if (cost == bestCost) {
+                if (best == null || map.getId() < best.getId()) {
+                    best = map;
+                }
             }
         }
         return best;
