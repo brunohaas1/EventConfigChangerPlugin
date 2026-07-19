@@ -276,8 +276,102 @@ public class MapResolver {
             }
         }
 
-        // 3) Caso contrário, resolver o mapa pelo NPC/ore do currentReq.
+        // 3) Resolver o mapa pelo NPC/ore do currentReq, otimizando para satisfazer múltiplos requisitos paralelos.
+        java.util.Set<Integer> currentMapIds = getCandidateMapIdsForRequirement(currentReq);
+        if (currentMapIds != null && !currentMapIds.isEmpty() && quest != null) {
+            // Conta quantos outros requisitos não completados e habilitados também podem ser feitos em cada mapa
+            java.util.Map<Integer, Integer> mapScores = new java.util.HashMap<>();
+            int maxScore = 0;
+            
+            for (int mapId : currentMapIds) {
+                int score = 0;
+                for (Requirement r : quest.getRequirements()) {
+                    if (r == currentReq || r.isCompleted() || !r.isEnabled()) continue;
+                    java.util.Set<Integer> rMaps = getCandidateMapIdsForRequirement(r);
+                    if (rMaps != null && rMaps.contains(mapId)) {
+                        score++;
+                    }
+                }
+                mapScores.put(mapId, score);
+                if (score > maxScore) {
+                    maxScore = score;
+                }
+            }
+            
+            // Filtra os mapas candidatos que atingiram a pontuação máxima de compatibilidade
+            java.util.Set<Integer> bestMapIds = new java.util.HashSet<>();
+            for (java.util.Map.Entry<Integer, Integer> entry : mapScores.entrySet()) {
+                if (entry.getValue() == maxScore) {
+                    bestMapIds.add(entry.getKey());
+                }
+            }
+            
+            // Escolhe o melhor mapa dentre os que possuem maior pontuação (mais próximo/alcançável)
+            GameMap bestNpcMap = pickClosestNpcMap(bestMapIds);
+            if (bestNpcMap != null) {
+                logger.logDebug("resolveQuestTargetMap: mapa otimizado para multiplos requisitos (score=" + maxScore + ") -> " + bestNpcMap.getName() + " para currentReq='" + currentReq.getDescription() + "'");
+                return bestNpcMap;
+            }
+        }
+
+        // Fallback: resolve normalmente pelo requisito ativo
         return resolveTargetMap(currentReq);
+    }
+
+    public java.util.Set<Integer> getCandidateMapIdsForRequirement(Requirement req) {
+        java.util.Set<Integer> mapIds = new java.util.HashSet<>();
+        if (req == null) return mapIds;
+
+        // 1. Explicit map in description
+        String reqDesc = req.getDescription();
+        if (reqDesc != null && !reqDesc.isEmpty()) {
+            GameMap explicitMap = extractMapFromDescription(reqDesc);
+            if (explicitMap != null && !isMapBlacklisted(explicitMap)) {
+                mapIds.add(explicitMap.getId());
+                return mapIds;
+            }
+        }
+
+        // 2. NPC database matching
+        String[] paths = {"loot.NPC_INFOS", "loot.npc_infos"};
+        for (String path : paths) {
+            try {
+                Set<String> npcKeys = ctx.configAPI.getChildren(path);
+                if (npcKeys == null || npcKeys.isEmpty()) continue;
+                for (String key : npcKeys) {
+                    ConfigSetting<NpcInfo> setting = ctx.configAPI.requireConfig(path + "." + key);
+                    NpcInfo info = setting.getValue();
+                    if (info == null) continue;
+                    String npcName = info.getName();
+                    if (npcName == null || npcName.isEmpty()) npcName = key;
+
+                    if (npcBoxMatcher.npcMatchesQuestDesc(npcName, reqDesc)) {
+                        Set<Integer> dbMapIds = info.getMapIds();
+                        if (dbMapIds != null) {
+                            for (int id : dbMapIds) {
+                                boolean isBossOrUber = npcName.toLowerCase().contains("boss") || npcName.toLowerCase().contains("uber");
+                                if (isBossOrUber && id == 1) continue; // Skip 1-1 for boss/uber
+                                Optional<GameMap> mapOpt = ctx.starSystemAPI.findMap(id);
+                                if (mapOpt.isPresent() && !isMapBlacklisted(mapOpt.get())) {
+                                    mapIds.add(id);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // 3. Fallback text rules
+        if (mapIds.isEmpty() && reqDesc != null && !reqDesc.isEmpty()) {
+            String normalized = MissionMapLoader.normalize(reqDesc);
+            GameMap byTextRules = resolveMapFromNormalizedText(normalized, reqDesc, true);
+            if (byTextRules != null && !isMapBlacklisted(byTextRules)) {
+                mapIds.add(byTextRules.getId());
+            }
+        }
+
+        return mapIds;
     }
 
     /**
