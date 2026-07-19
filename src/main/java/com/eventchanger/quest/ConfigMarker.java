@@ -434,10 +434,29 @@ public class ConfigMarker {
     void unmarkAll() {
         Map<String, NpcInfo> npcInfos = getNpcInfos();
         if (npcInfos != null) {
-            for (String key : ctx.lastAppliedNpcKeys) {
-                NpcInfo info = npcInfos.get(key);
-                if (info != null && info.getShouldKill()) {
-                    info.setShouldKill(false);
+            if (ctx.hasSavedOriginalNpcs) {
+                for (Map.Entry<String, NpcInfo> entry : npcInfos.entrySet()) {
+                    String key = entry.getKey();
+                    NpcInfo info = entry.getValue();
+                    if (info != null) {
+                        boolean shouldKill = ctx.originalEnabledNpcs.contains(key);
+                        if (info.getShouldKill() != shouldKill) {
+                            info.setShouldKill(shouldKill);
+                        }
+                        Double correctRadius = getCorrectRadius(key);
+                        if (correctRadius != null) {
+                            info.setRadius(correctRadius);
+                        }
+                    }
+                }
+                ctx.originalEnabledNpcs.clear();
+                ctx.hasSavedOriginalNpcs = false;
+            } else {
+                for (String key : ctx.lastAppliedNpcKeys) {
+                    NpcInfo info = npcInfos.get(key);
+                    if (info != null && info.getShouldKill()) {
+                        info.setShouldKill(false);
+                    }
                 }
             }
         }
