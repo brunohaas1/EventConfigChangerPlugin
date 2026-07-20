@@ -150,6 +150,12 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         long now = System.currentTimeMillis();
         questPanel.updatePanel();
 
+        // Se um módulo temporal (como Fast Travel) estiver ativo, saímos imediatamente
+        // para dar o controle total ao módulo e evitar conflitos ou reinicialização de estado.
+        if (isTemporalModule(ctx.botAPI.getModule())) {
+            return;
+        }
+
         // Helper de diagnóstico: dumpe as GUIs visíveis (com bounds reais) enquanto a
         // janela do QuestGiver está aberta, para calibrar os offsets relativos
         // (listItemX/Y, acceptButtonX/Y) no client. Throttled internamente (5s).
@@ -973,5 +979,17 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         if (!ctx.attackAPI.isAttacking()) {
             ctx.heroAPI.triggerLaserAttack();
         }
+    }
+
+    private boolean isTemporalModule(Module module) {
+        if (module == null) return false;
+        Class<?> clazz = module.getClass();
+        while (clazz != null && clazz != Object.class) {
+            if (clazz.getName().contains("TemporalModule") || clazz.getName().contains("FastTravel")) {
+                return true;
+            }
+            clazz = clazz.getSuperclass();
+        }
+        return false;
     }
 }
