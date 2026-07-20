@@ -411,6 +411,9 @@ public class ConfigMarker {
     private void applyDesiredNpcMarksIncremental(Map<String, NpcInfo> npcInfos, Set<String> desiredNpcKeys) {
         if (npcInfos == null) return;
 
+        // Lógica especial para o Battleray: se houver interceptores visíveis, desmarca Battleray e prioriza os interceptores
+        handleBattlerayLogic(desiredNpcKeys, npcInfos);
+
         if (!desiredNpcKeys.isEmpty()) {
             // 1. Save original enabled NPCs if we haven't done so yet.
             if (!ctx.hasSavedOriginalNpcs) {
@@ -464,6 +467,55 @@ public class ConfigMarker {
 
         ctx.lastAppliedNpcKeys.clear();
         ctx.lastAppliedNpcKeys.addAll(desiredNpcKeys);
+    }
+
+    private void handleBattlerayLogic(Set<String> desiredNpcKeys, Map<String, NpcInfo> npcInfos) {
+        if (desiredNpcKeys == null || desiredNpcKeys.isEmpty() || npcInfos == null) return;
+
+        // 1. Verifica se Battleray está nas chaves de interesse (missão ativa)
+        boolean hasBattlerayInDesired = false;
+        for (String key : desiredNpcKeys) {
+            if (key.toLowerCase().contains("battleray")) {
+                hasBattlerayInDesired = true;
+                break;
+            }
+        }
+        if (!hasBattlerayInDesired) return;
+
+        // 2. Verifica se há algum Interceptor visível no mapa
+        boolean interceptorVisible = false;
+        if (ctx.entitiesAPI != null && ctx.entitiesAPI.getNpcs() != null) {
+            for (eu.darkbot.api.game.entities.Npc npc : ctx.entitiesAPI.getNpcs()) {
+                String name = npc.getEntityInfo().getUsername();
+                if (name != null && name.toLowerCase().contains("interceptor")) {
+                    interceptorVisible = true;
+                    break;
+                }
+            }
+        }
+
+        // 3. Se houver interceptor visível, desmarca Battleray e marca Interceptor
+        if (interceptorVisible) {
+            // Remove o Battleray
+            java.util.Iterator<String> it = desiredNpcKeys.iterator();
+            while (it.hasNext()) {
+                if (it.next().toLowerCase().contains("battleray")) {
+                    it.remove();
+                }
+            }
+
+            // Adiciona todas as chaves do config.json que combinam com "interceptor"
+            boolean addedInterceptor = false;
+            for (String key : npcInfos.keySet()) {
+                if (key.toLowerCase().contains("interceptor")) {
+                    desiredNpcKeys.add(key);
+                    addedInterceptor = true;
+                }
+            }
+            if (addedInterceptor) {
+                logger.logDebug("Battleray com escudo detectado! Priorizando Interceptors e desmarcando Battleray temporariamente.");
+            }
+        }
     }
 
     private void applyDesiredBoxMarksIncremental(Map<String, BoxInfo> boxInfos, Set<String> desiredBoxKeys) {
