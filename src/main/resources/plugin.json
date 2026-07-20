@@ -2,8 +2,8 @@
   "name": "EventConfigChanger",
   "author": "Bruno",
   "version": "1.0.0",
-  "minVersion": "1.128",
-  "supportedVersion": "1.131",
+  "minVersion": "1.128.0",
+  "supportedVersion": "1.131.0",
   "basePackage": "com.eventchanger",
   "features": [
     "com.eventchanger.EventConfigChanger",

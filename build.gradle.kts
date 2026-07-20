@@ -26,7 +26,11 @@ version = "1.0.0"
 description = "EventConfigChanger"
 
 dependencies {
-    compileOnly(files("c:/Users/Bruno/Desktop/DarkOrbit/DarkBot.jar"))
+    compileOnly(files(
+        "libs/DarkBot.jar",
+        "c:/Users/Bruno/Desktop/DarkOrbit/DarkBot.jar",
+        System.getenv("DARKBOT_PATH") ?: "libs/DarkBot.jar"
+    ))
 }
 
 tasks.jar {

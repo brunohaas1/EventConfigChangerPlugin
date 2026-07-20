@@ -160,14 +160,16 @@ public class QuestConfig {
     // Gasto de Munição (para quests SPEND_AMMUNITION)
     // =========================================================================
 
-    @Option.Ignore
+    @Option("quest_module.ammo")
     public AmmoConfig ammo = new AmmoConfig();
 
     public static class AmmoConfig {
 
+        @Option("quest_module.ammo.auto_spend_ammo")
         public boolean autoSpendAmmo = true; // Gastar munição automaticamente
 
-        public int spendAmmoLaser = 4; // Laser para gastar (1-4, LCB-10 mais caro)
+        @Option("quest_module.ammo.spend_ammo_laser_key")
+        public Character spendAmmoLaserKey = Character.valueOf('4'); // Tecla de munição para gastar (ex: 4)
     }
 
     // =========================================================================
@@ -219,11 +221,12 @@ public class QuestConfig {
     // Matching de NPCs
     // =========================================================================
 
-    @Option.Ignore
+    @Option("quest_module.npc")
     public NpcConfig npc = new NpcConfig();
 
     public static class NpcConfig {
 
+        @Option("quest_module.npc.custom_aliases")
         public String customAliases = ""; // Formato: "nome_npc1=desc_quest1;nome_npc2=desc_quest2"
     }
 

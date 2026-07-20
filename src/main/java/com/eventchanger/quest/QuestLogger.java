@@ -23,10 +23,11 @@ public class QuestLogger {
     }
 
     public boolean isVerboseLoggingEnabled() {
-        return true;
+        return ctx.config != null && ctx.config.logging != null && ctx.config.logging.verbose;
     }
 
     public void logDebug(String msg) {
+        if (!isVerboseLoggingEnabled()) return;
         System.out.println("[QuestModule] DEBUG " + msg);
         appendPluginLog("[DEBUG] " + msg);
     }
@@ -38,6 +39,7 @@ public class QuestLogger {
      * processamento de quests secundárias) e gerariam spam no console.
      */
     public void logDebugThrottled(String msg, long minIntervalMs) {
+        if (!isVerboseLoggingEnabled()) return;
         long now = System.currentTimeMillis();
         Long last = lastThrottledLog.get(msg);
         if (last != null && now - last < minIntervalMs) return;
@@ -61,6 +63,9 @@ public class QuestLogger {
      * Append plugin-specific log entries to a file for easier diagnostics.
      */
     public void appendPluginLog(String msg) {
+        if (ctx.config != null && ctx.config.logging != null && !ctx.config.logging.logToFile) {
+            return;
+        }
         try {
             Path logFile = Path.of(System.getProperty("user.dir", ".")).resolve("EventConfigChanger.log");
             Files.writeString(logFile, Instant.now() + " " + msg + System.lineSeparator(),

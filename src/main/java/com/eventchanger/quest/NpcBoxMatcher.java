@@ -35,7 +35,7 @@ public class NpcBoxMatcher {
 
     public void refreshCustomAliasesIfNeeded() {
         if (ctx.config == null) return;
-        String raw = "";
+        String raw = ctx.config.npc != null && ctx.config.npc.customAliases != null ? ctx.config.npc.customAliases : "";
         if (raw.equals(ctx.lastCustomAliasesRaw)) return;
 
         ctx.customNpcAliases.clear();

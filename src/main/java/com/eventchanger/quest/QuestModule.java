@@ -781,9 +781,14 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         if (!ammoChanged && now - lastAmmoChangeTime > 2000) {
             lastAmmoChangeTime = now;
             ammoChanged = true;
-            // Note: heroAPI has methods to change ammo, but exact API varies.
-            // If available: heroAPI.setLaser(4);
-            ctx.currentAction = "[Ammo] Trocando para laser L4 para gastar munição...";
+            if (ctx.config.ammo != null && ctx.config.ammo.spendAmmoLaserKey != null) {
+                Character laserKey = ctx.config.ammo.spendAmmoLaserKey;
+                ctx.coreApi.keyboardClick(laserKey);
+                logger.logDebug("Trocando para laser para gastar municao: Tecla=" + laserKey);
+                ctx.currentAction = "[Ammo] Trocando para laser (tecla " + laserKey + ") para gastar municao...";
+            } else {
+                ctx.currentAction = "[Ammo] Gastando municao...";
+            }
         }
 
         // Delegate to LootCollectorModule to shoot at NPCs
