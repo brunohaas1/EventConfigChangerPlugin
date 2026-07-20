@@ -811,6 +811,7 @@ public class QuestGiverInteraction {
             GameMap nextMap = mapResolver.resolveHomeMap();
             if (nextMap != null) {
                 ctx.currentAction = "[QuestCache] Voando para " + nextMap.getName() + " para ler cache...";
+                mapResolver.updateBotWorkingMap(nextMap);
                 mapResolver.navigateToMap(nextMap, now);
             } else {
                 ctx.questCacheInitialized = true; // Fallback
@@ -971,6 +972,7 @@ public class QuestGiverInteraction {
             ctx.acceptNeedAccept = false;
             // Reseta diárias: ao sair da base, precisamos reprocessar diárias na próxima visita
             resetDailyMissionsState();
+            mapResolver.updateBotWorkingMap(homeMap);
             mapResolver.navigateToMap(homeMap, now);
             return;
         }
