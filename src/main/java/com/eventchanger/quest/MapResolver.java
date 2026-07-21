@@ -834,6 +834,9 @@ public class MapResolver {
         if (cleanReq.contains("invoke"))   return getCompanyMap("1-BL", "2-BL", "3-BL");
         if (cleanReq.contains("mindfire")) return getCompanyMap("1-BL", "2-BL", "3-BL");
 
+        // Purpose XXI maps to X-8 of player's company
+        if (cleanReq.contains("purpose"))   return getCompanyMap("1-8", "2-8", "3-8");
+
         return null;
     }
 
