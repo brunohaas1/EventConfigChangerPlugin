@@ -603,25 +603,25 @@ public class MapResolver {
     // Código ANTES da palavra map/mapa: "X-4 map", "4-5 map", "your X-4 map"
     private static final Pattern MAP_AFTER_PATTERN = Pattern.compile(
             "(?i)(?:(?:your|enemy|home|own\\s+company|own|sua|seu|pr[óo]pria|propria)\\s+)?" +
-            "([xX\\d])\\s*-\\s*(\\d{1,2})\\s*(?:mapa|map)\\b");
+            "([xX\\d])\\s*-\\s*(\\d{1,2}|[bB][lL])\\s*(?:mapa|map)\\b");
     // Código DEPOIS da palavra map/mapa: "mapa X-4", "mapa 4-5", "no seu mapa X-4",
     // "mapa inimigo X-5" (a palavra inimigo/enemy pode ficar entre mapa e o código).
     private static final Pattern MAP_BEFORE_PATTERN = Pattern.compile(
             "(?i)(?:(?:your|enemy|home|own\\s+company|own|sua|seu|pr[óo]pria|propria)\\s+)?" +
-            "(?:mapa|map)\\s+(?:inimigo|enemy\\s+)?([xX\\d])\\s*-\\s*(\\d{1,2})");
+            "(?:mapa|map)\\s+(?:inimigo|enemy\\s+)?([xX\\d])\\s*-\\s*(\\d{1,2}|[bB][lL])");
     // Forma normalizada (sem hífens, usada em textos já passados por MissionMapLoader.normalize):
     // "mapa x 4", "x 4 map"
     private static final Pattern MAP_SPACE_PATTERN = Pattern.compile(
             "(?i)(?:(?:your|enemy|home|own\\s+company|own|sua|seu|pr[óo]pria|propria)\\s+)?" +
-            "(?:mapa|map)\\s+(?:inimigo|enemy\\s+)?([xX\\d])\\s+(\\d{1,2})");
+            "(?:mapa|map)\\s+(?:inimigo|enemy\\s+)?([xX\\d])\\s+(\\d{1,2}|[bB][lL])");
     // Código PURO (sem palavra "map"/"mapa"): usado em listas "maps: 1-3, 2-3, 3-3"
     // e em textos normalizados onde o "map" foi removido. Só casa quando cercado
     // por separadores (início, espaço, vírgula, barra, parêntese) para não confundir
     // com quantidades como "0/30" ou coordenadas "107/67".
     private static final Pattern MAP_BARE_PATTERN = Pattern.compile(
-            "(?<!\\d)([xX\\d])\\s*-\\s*(\\d{1,2})(?!\\d)");
+            "(?<!\\d)([xX\\d])\\s*-\\s*(\\d{1,2}|[bB][lL])(?![a-zA-Z\\d])");
     private static final Pattern MAP_LIST_PATTERN = Pattern.compile(
-            "(?i)(?:mapas?\\s*:?\\s*)((?:[xX\\d]\\s*-\\s*\\d{1,2}\\s*(?:,\\s*)?)+)");
+            "(?i)(?:mapas?\\s*:?\\s*)((?:[xX\\d]\\s*-\\s*(?:\\d{1,2}|[bB][lL])\\s*(?:,\\s*)?)+)");
 
     /**
      * Tenta casar um código de mapa (X-4, 4-5, 1-3, ...) em qualquer posição do
@@ -826,6 +826,13 @@ public class MapResolver {
         // Map 5-3 (Pirate map 3)
         if (cleanReq.contains("battleray"))   return ctx.starSystemAPI.findMap("5-3").orElse(null);
         if (cleanReq.contains("palladium"))   return ctx.starSystemAPI.findMap("5-3").orElse(null);
+
+        // Map X-BL (Blacklight maps)
+        if (cleanReq.contains("impulse"))  return getCompanyMap("1-BL", "2-BL", "3-BL");
+        if (cleanReq.contains("attend"))   return getCompanyMap("1-BL", "2-BL", "3-BL");
+        if (cleanReq.contains("observe"))  return getCompanyMap("1-BL", "2-BL", "3-BL");
+        if (cleanReq.contains("invoke"))   return getCompanyMap("1-BL", "2-BL", "3-BL");
+        if (cleanReq.contains("mindfire")) return getCompanyMap("1-BL", "2-BL", "3-BL");
 
         return null;
     }
