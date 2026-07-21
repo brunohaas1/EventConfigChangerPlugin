@@ -67,6 +67,8 @@ public class QuestGiverInteraction {
     private int dailyAcceptFailStreak = 0;
     /** Máximo de falhas antes de desistir das diárias. */
     private static final int MAX_DAILY_ACCEPT_FAILS = 6;
+    /** Registro de quando o QuestGiver esteve aberto pela última vez para evitar reset imediato sob flickering. */
+    private long lastTimeQuestGiverWasOpen = 0L;
 
     private final QuestContext ctx;
     private final QuestLogger logger;
@@ -559,20 +561,23 @@ public class QuestGiverInteraction {
      */
     public boolean ensureQuestGuiVisible(long now) {
         if (ctx.questAPI.isQuestGiverOpen()) {
+            lastTimeQuestGiverWasOpen = now;
             return true;
         }
         // QuestGiver fechado: reseta o estado de aceite para recomeçar do topo quando
-        // a janela reabrir, e dispara a abertura via trySelect no QuestGiver.
-        ctx.acceptRowIndex = 0;
-        ctx.acceptNeedSelect = false;
-        ctx.acceptNeedAccept = false;
-        ctx.pendingAcceptVerifyTime = 0L;
-        ctx.pendingAcceptQuestId = -1;
-        ctx.pendingAcceptQuestTitle = "";
-        ctx.nextAcceptRetryTime = 0L;
-        ctx.acceptFailStreak = 0;
-        // Reseta diárias: ao fechar a janela, precisamos reprocessar diárias na reabertura
-        resetDailyMissionsState();
+        // a janela reabrir (somente após um grace period de 2 segundos para evitar flickering)
+        if (now - lastTimeQuestGiverWasOpen > 2000) {
+            ctx.acceptRowIndex = 0;
+            ctx.acceptNeedSelect = false;
+            ctx.acceptNeedAccept = false;
+            ctx.pendingAcceptVerifyTime = 0L;
+            ctx.pendingAcceptQuestId = -1;
+            ctx.pendingAcceptQuestTitle = "";
+            ctx.nextAcceptRetryTime = 0L;
+            ctx.acceptFailStreak = 0;
+            // Reseta diárias: ao fechar a janela, precisamos reprocessar diárias na reabertura
+            resetDailyMissionsState();
+        }
         if (ctx.acceptOpenAttemptTime == 0L) {
             ctx.acceptOpenAttemptTime = now;
         }
@@ -582,6 +587,7 @@ public class QuestGiverInteraction {
             qg.trySelect(true);
             ctx.lastQuestGiverTrySelectTime = now;
         }
+        ctx.currentAction = "[AcceptQuest] Abrindo janela do QuestGiver...";
         // Timeout: se nunca abre, reseta para tentar do zero.
         if (now - ctx.acceptOpenAttemptTime > 8000) {
             logger.logDiagnostic("[AcceptQuest] Timeout garantindo abertura do QuestGiver; resetando.");
@@ -1126,11 +1132,11 @@ public class QuestGiverInteraction {
         if (candidates.isEmpty()) {
             ctx.currentAction = "[AcceptQuest] Nenhuma quest disponivel para aceitar.";
             logger.logDiagnostic("[AcceptQuest] Nenhum candidato apos filtro (questTypesToAccept="
-                    + (ctx.config != null ? ctx.config.questTypesToAccept : "ALL") + ", questTypeConfig=" + ctx.config.questType + ")");
-            // Back-off: if we keep finding nothing, reset the open attempt so the bot
-            // reopens via trySelect (sem mexer na janela HUD de missões errada).
-            if (now - ctx.lastAcceptSuccessTime > 30000) {
-                ctx.acceptOpenAttemptTime = 0L;
+                    + (ctx.config != null ? ctx.config.questTypesToAccept : "ALL") + ", questTypeConfig=" + ctx.config.questType + "). Finalizando ciclo de aceite.");
+            ctx.acceptCycleComplete = true;
+            ctx.acceptedThisCycle = 0;
+            if (ctx.questGui != null) {
+                ctx.questGui.setVisible(false);
             }
             return;
         }
