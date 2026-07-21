@@ -327,10 +327,11 @@ public class QuestContext {
                 && t != RequirementType.SALVAGE) {
             return false;
         }
-        if (t == RequirementType.SELL_ORE) {
-            return true;
-        }
         String d = r.getDescription() != null ? r.getDescription().toLowerCase() : "";
+        // SELL_ORE para minérios crus (Prometium/Endurium/Terbium) não deve ser tratado como Ore From Ship
+        if (t == RequirementType.SELL_ORE) {
+            return d.contains("prometid") || d.contains("duranium") || d.contains("promerium");
+        }
         return d.contains("prometid") || d.contains("duranium") || d.contains("promerium");
     }
 
