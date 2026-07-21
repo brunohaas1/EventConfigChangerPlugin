@@ -30,7 +30,7 @@ import javax.swing.JComponent;
 public class QuestModule implements Module, Behavior, Configurable<QuestConfig>, InstructionProvider {
 
     private static final java.util.regex.Pattern COORDINATES_PATTERN = 
-            java.util.regex.Pattern.compile("(\\d{3,5})\\s*[,/\\\\\\s]\\s*(\\d{3,5})");
+            java.util.regex.Pattern.compile("(\\d{2,5})\\s*[,/\\\\\\s]\\s*(\\d{2,5})");
 
     private final QuestContext ctx;
     private final QuestLogger logger;
@@ -529,13 +529,7 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
             }
         }
 
-        // CORREÇÃO DO "PING-PONG": Se não estamos mais no mapa base, reseta a flag
-        // para permitir novo ciclo de aceite quando voltar.
-        if (!isOnHomeMap && ctx.acceptCycleComplete) {
-            ctx.acceptCycleComplete = false;
-            ctx.acceptFailStreak = 0;
-            logger.logDebug("acceptCycleComplete resetado (saiu do mapa base)");
-        }
+
 
         // No accepted quests left
         GameMap oldTarget3 = ctx.targetMap;
@@ -634,6 +628,9 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
                     try {
                         double targetX = Double.parseDouble(m.group(1));
                         double targetY = Double.parseDouble(m.group(2));
+                        // Mini-map coordinates scaling (e.g., 75/75 -> 7500/7500)
+                        if (targetX < 500) targetX *= 100;
+                        if (targetY < 500) targetY *= 100;
                         
                         double dist = ctx.heroAPI.distanceTo(targetX, targetY);
                         if (dist > 300) {
