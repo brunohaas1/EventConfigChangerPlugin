@@ -142,10 +142,6 @@ public class ConfigMarker {
         long now = System.currentTimeMillis();
         boolean forceUpdate = (ctx.lastTargetMapId == null) || (targetMap.getId() != ctx.lastTargetMapId);
 
-        // Rastreamento de chamadas para updateConfigForQuest
-        // System.out.println("[UPDATE_CONFIG_FOR_QUEST] quest='" + (quest != null ? quest.getTitle() : "null")
-        //         + "' | targetMap=" + (targetMap != null ? targetMap.getName() : "null")
-        //         + " | caller: updateConfigForQuest() em com.eventchanger.quest.ConfigMarker");
 
         logger.logDebug("npcFinder recebeu: targetMap="
                 + (targetMap != null ? targetMap.getName() : "null")
@@ -179,21 +175,6 @@ public class ConfigMarker {
         }
         String currentReqState = reqState.toString();
 
-        // [FLOW] 4) Dentro de updateConfigForQuest, após avaliar cada requirement
-        // if (quest != null) {
-        //     StringBuilder flowReqs = new StringBuilder();
-        //     for (Requirement r : quest.getRequirements()) {
-        //         if (r.isCompleted()) continue;
-        //         GameMap rMap = reqMapCache.get(r);
-        //         flowReqs.append("\n    req='").append(r.getDescription()).append("'")
-        //                 .append(" | rMap=").append(rMap != null ? rMap.getName() : "null")
-        //                 .append(" | rMap==targetMap=").append(rMap != null && rMap.getId() == targetMap.getId());
-        //     }
-        //     System.out.println("[FLOW] updateConfigForQuest:"
-        //             + "\n  quest=" + quest.getTitle()
-        //             + "\n  targetMap_recebido=" + (targetMap != null ? targetMap.getName() : "null")
-        //             + "\n  requirements_avaliados:" + flowReqs);
-        // }
 
         boolean stateChanged = !currentReqState.equals(ctx.lastRequirementState);
 
