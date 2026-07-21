@@ -589,6 +589,7 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         }
 
         RequirementType type = ctx.currentReq.getRequirementType();
+        logger.logDiagnostic("[executeAction] currentReq='" + ctx.currentReq.getDescription() + "' type=" + type);
 
         // 1. Handle selling ores
         if (type == RequirementType.SELL_ORE) {
@@ -618,9 +619,10 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
             return;
         }
 
-        // 4.5 Handle coordinate / travel / proximity / distance requirements specifically
-        if (type == RequirementType.COORDINATES || type == RequirementType.TRAVEL 
-                || type == RequirementType.PROXIMITY || type == RequirementType.DISTANCE) {
+        // 4.5 Handle coordinate / travel / proximity / distance / visit / map / unknown requirements specifically
+        boolean isActionType = isKillType(type) || isLootType(type) || isPvpType(type)
+                || type == RequirementType.SELL_ORE || type == RequirementType.SPEND_AMMUNITION;
+        if (!isActionType) {
             String desc = ctx.currentReq.getDescription();
             if (desc != null && !desc.isEmpty()) {
                 java.util.regex.Matcher m = COORDINATES_PATTERN.matcher(desc);
