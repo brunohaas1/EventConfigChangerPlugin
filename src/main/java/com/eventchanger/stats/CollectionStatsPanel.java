@@ -5,7 +5,6 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
 import java.awt.event.ActionListener;
-import java.text.DecimalFormat;
 import java.text.NumberFormat;
 
 public class CollectionStatsPanel {
@@ -24,6 +23,11 @@ public class CollectionStatsPanel {
 
     private final JLabel lblExperience;
     private final JLabel lblHonor;
+
+    private final JLabel lblExtraEnergy;
+    private final JLabel lblExtraEnergyRate;
+
+    private final JLabel lblAmmunition;
 
     private final JLabel lblBonusBoxes;
     private final JLabel lblBonusBoxRate;
@@ -76,9 +80,9 @@ public class CollectionStatsPanel {
         JPanel gridPanel = new JPanel(new GridLayout(3, 1, 6, 6));
         gridPanel.setOpaque(false);
 
-        // Section 1: Moedas & Ganhos
-        JPanel sectionGains = createSectionPanel("Moedas & Progresso");
-        sectionGains.setLayout(new GridLayout(2, 2, 8, 4));
+        // Section 1: Moedas & Recursos
+        JPanel sectionGains = createSectionPanel("Moedas & Recursos");
+        sectionGains.setLayout(new GridLayout(2, 3, 8, 4));
 
         lblUridium = createMetricLabel("0", new Color(0, 230, 120));
         lblUridiumRate = createSubLabel("0/h");
@@ -86,11 +90,18 @@ public class CollectionStatsPanel {
         lblCredits = createMetricLabel("0", new Color(255, 205, 50));
         lblCreditsRate = createSubLabel("0/h");
 
+        lblExtraEnergy = createMetricLabel("0", new Color(255, 140, 0));
+        lblExtraEnergyRate = createSubLabel("0/h");
+
+        lblAmmunition = createMetricLabel("0", new Color(255, 100, 100));
+
         lblExperience = createMetricLabel("0", new Color(80, 180, 255));
         lblHonor = createMetricLabel("0", new Color(200, 130, 255));
 
         sectionGains.add(createTile("Uridium Obter", lblUridium, lblUridiumRate));
         sectionGains.add(createTile("Créditos Obter", lblCredits, lblCreditsRate));
+        sectionGains.add(createTile("Energia Extra (EE)", lblExtraEnergy, lblExtraEnergyRate));
+        sectionGains.add(createTile("Munição/Foguetes", lblAmmunition, createSubLabel("Coletadas de Caixas")));
         sectionGains.add(createTile("Experiência (XP)", lblExperience, createSubLabel("Ganho total")));
         sectionGains.add(createTile("Honra (Honor)", lblHonor, createSubLabel("Ganho total")));
 
@@ -178,6 +189,8 @@ public class CollectionStatsPanel {
                            double uridium, double uridiumRate,
                            double credits, double creditsRate,
                            double experience, double honor,
+                           long extraEnergy, double extraEnergyRate,
+                           long ammunition,
                            long bonusBoxes, double bonusBoxRate,
                            long cargoBoxes, long bootyKeys,
                            long palladium, double palladiumRate,
@@ -189,6 +202,11 @@ public class CollectionStatsPanel {
 
         lblCredits.setText("+" + FMT.format((long) credits));
         lblCreditsRate.setText(FMT.format((long) creditsRate) + " / hora");
+
+        lblExtraEnergy.setText("+" + FMT.format(extraEnergy));
+        lblExtraEnergyRate.setText(FMT.format((long) extraEnergyRate) + " / hora");
+
+        lblAmmunition.setText("+" + FMT.format(ammunition));
 
         lblExperience.setText("+" + FMT.format((long) experience));
         lblHonor.setText("+" + FMT.format((long) honor));

@@ -3,6 +3,7 @@ package com.eventchanger.stats;
 import eu.darkbot.api.PluginAPI;
 import eu.darkbot.api.config.ConfigSetting;
 import eu.darkbot.api.events.EventHandler;
+import eu.darkbot.api.events.Listener;
 import eu.darkbot.api.extensions.Behavior;
 import eu.darkbot.api.extensions.Configurable;
 import eu.darkbot.api.extensions.Feature;
@@ -13,7 +14,6 @@ import eu.darkbot.api.managers.GameLogAPI;
 import eu.darkbot.api.managers.StarSystemAPI;
 import eu.darkbot.api.managers.StatsAPI;
 
-import eu.darkbot.api.events.Listener;
 import javax.swing.JComponent;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -41,6 +41,9 @@ public class CollectionStatsModule implements Module, Behavior, Configurable<Col
     private long palladiumCount = 0;
     private long otherOresCount = 0;
 
+    private long extraEnergyCount = 0;
+    private long ammoCollectedCount = 0;
+
     public CollectionStatsModule(PluginAPI api) {
         this.statsApi = api.requireAPI(StatsAPI.class);
         this.eventBrokerApi = api.requireAPI(EventBrokerAPI.class);
@@ -64,6 +67,8 @@ public class CollectionStatsModule implements Module, Behavior, Configurable<Col
         this.bootyKeysCount = 0;
         this.palladiumCount = 0;
         this.otherOresCount = 0;
+        this.extraEnergyCount = 0;
+        this.ammoCollectedCount = 0;
     }
 
     @Override
@@ -105,6 +110,7 @@ public class CollectionStatsModule implements Module, Behavior, Configurable<Col
 
         double uridiumRate = hours > 0 ? earnedUridium / hours : 0;
         double creditsRate = hours > 0 ? earnedCredits / hours : 0;
+        double extraEnergyRate = hours > 0 ? extraEnergyCount / hours : 0;
         double bonusBoxRate = hours > 0 ? bonusBoxesCount / hours : 0;
         double palladiumRate = hours > 0 ? palladiumCount / hours : 0;
 
@@ -117,6 +123,8 @@ public class CollectionStatsModule implements Module, Behavior, Configurable<Col
                     earnedUridium, uridiumRate,
                     earnedCredits, creditsRate,
                     earnedXP, earnedHonor,
+                    extraEnergyCount, extraEnergyRate,
+                    ammoCollectedCount,
                     bonusBoxesCount, bonusBoxRate,
                     cargoBoxesCount, bootyKeysCount,
                     palladiumCount, palladiumRate,
@@ -143,7 +151,17 @@ public class CollectionStatsModule implements Module, Behavior, Configurable<Col
             }
         }
 
-        // 2. Detect Ores / Palladium
+        // 2. Extra Energy & Ammunition
+        if (msg.contains("extra energy") || msg.contains("energia extra") || msg.contains("extra_energy") || msg.contains("extra-energy")) {
+            long qty = parseQuantity(msg);
+            extraEnergyCount += qty;
+        } else if (msg.contains("munição") || msg.contains("municao") || msg.contains("ammunition") || msg.contains("ammo")
+                || msg.contains("foguete") || msg.contains("rocket") || msg.contains("lcb-") || msg.contains("mcb-") || msg.contains("ucb-") || msg.contains("plt-") || msg.contains("r-310")) {
+            long qty = parseQuantity(msg);
+            ammoCollectedCount += qty;
+        }
+
+        // 3. Detect Ores / Palladium
         if (msg.contains("palladium")) {
             long qty = parseQuantity(msg);
             palladiumCount += qty;
