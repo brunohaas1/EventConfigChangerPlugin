@@ -216,9 +216,9 @@ public class QuestGiverInteraction {
                     return true;
                 }
 
-                // Filtra candidatos aceitáveis (activable e não completed e não R-Zone)
+                // Filtra candidatos aceitáveis (activable e não completed e não R-Zone e não Blacklist)
                 List<? extends QuestListItem> candidates = quests.stream()
-                        .filter(q -> q != null && !q.isCompleted() && q.isActivable() && !isRZoneQuest(q))
+                        .filter(q -> q != null && !q.isCompleted() && q.isActivable() && !isRZoneQuest(q) && !isBlacklistedQuest(q))
                         .collect(java.util.stream.Collectors.toList());
 
                 if (candidates.isEmpty()) {
@@ -590,8 +590,16 @@ public class QuestGiverInteraction {
         ctx.currentAction = "[AcceptQuest] Abrindo janela do QuestGiver...";
         // Timeout: se nunca abre, reseta para tentar do zero.
         if (now - ctx.acceptOpenAttemptTime > 8000) {
-            logger.logDiagnostic("[AcceptQuest] Timeout garantindo abertura do QuestGiver; resetando.");
+            logger.logDiagnostic("[AcceptQuest] Timeout abrindo QuestGiver apos 8s, reiniciando tentativa.");
             ctx.acceptOpenAttemptTime = 0L;
+            ctx.acceptFailStreak++;
+            if (ctx.acceptFailStreak >= QuestContext.MAX_ACCEPT_FAILS) {
+                logger.logDiagnostic("[AcceptQuest] Falhas consecutivas ao abrir QuestGiver (" + ctx.acceptFailStreak
+                        + "). Encerrando ciclo de aceite por seguranca.");
+                ctx.acceptCycleComplete = true;
+                ctx.acceptedThisCycle = 0;
+                ctx.acceptFailStreak = 0;
+            }
         }
         return false;
     }
@@ -1528,9 +1536,65 @@ public class QuestGiverInteraction {
         return false;
     }
 
+    public boolean isBlacklistedQuest(QuestListItem item) {
+        if (item == null) return false;
+        String title = item.getTitle() != null ? item.getTitle() : "";
+        String objText = (ctx != null && ctx.missionMapLoader != null) ? ctx.missionMapLoader.resolveQuestObjectiveText(title) : "";
+
+        if (isBlacklistedText(title, objText)) {
+            logger.logDiagnostic("[AcceptQuest] Recusando quest id=" + item.getId() + " '" + title + "' (Blacklist: Mindfire / Sinal BL).");
+            return true;
+        }
+
+        // Se a quest estiver selecionada na GUI, checa seus requisitos reais
+        eu.darkbot.api.managers.QuestAPI.Quest selectedQuest = ctx.questAPI.getSelectedQuest();
+        if (selectedQuest != null && selectedQuest.getId() == item.getId()) {
+            if (isBlacklistedText(selectedQuest.getTitle(), null)) return true;
+            java.util.List<? extends eu.darkbot.api.managers.QuestAPI.Requirement> reqs = selectedQuest.getRequirements();
+            if (reqs != null) {
+                for (eu.darkbot.api.managers.QuestAPI.Requirement r : reqs) {
+                    if (r != null && isBlacklistedText(r.getDescription(), null)) {
+                        logger.logDiagnostic("[AcceptQuest] Recusando quest selecionada id=" + item.getId() + " '" + title + "' pois contem requisito Blacklist (Mindfire / Sinal BL): " + r.getDescription());
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    public static boolean isBlacklistedText(String title, String description) {
+        if (title == null) title = "";
+        if (description == null) description = "";
+
+        String normTitle = MissionMapLoader.normalize(title);
+        String normDesc = MissionMapLoader.normalize(description);
+        String text = normTitle + " " + normDesc;
+
+        // 1. Mindfire (Behemoth, Cerebrum, etc)
+        if (text.contains("mindfire") || text.contains("mind fire")) {
+            return true;
+        }
+
+        // 2. Coleta de Sinal Black Light (BL Signal / Beacon collection)
+        boolean hasSignalKeyword = text.contains("sinal") || text.contains("signal") || text.contains("transmissor") || text.contains("beacon");
+        boolean hasBlKeyword = text.contains("black light") || text.contains("blacklight") || text.contains(" bl ") || text.endsWith(" bl") || text.contains("1bl") || text.contains("2bl") || text.contains("3bl") || text.contains("colet") || text.contains("recolh") || text.contains("collect");
+
+        if (hasSignalKeyword && hasBlKeyword) {
+            return true;
+        }
+
+        if ((text.contains("colet") || text.contains("recolh") || text.contains("collect")) && (text.contains("sinal") || text.contains("signal"))) {
+            return true;
+        }
+
+        return false;
+    }
+
     private boolean matchesQuestTypeFilter(QuestListItem item) {
         if (item == null || ctx.config == null) return false;
         if (isRZoneQuest(item)) return false;
+        if (isBlacklistedQuest(item)) return false;
 
         String type = item.getType() != null ? item.getType().toLowerCase() : "";
         String itemTitle = item.getTitle() != null ? item.getTitle().toLowerCase() : "";
