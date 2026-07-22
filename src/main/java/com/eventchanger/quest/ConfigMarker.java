@@ -199,7 +199,7 @@ public class ConfigMarker {
             for (Requirement r : quest.getRequirements()) {
                 if (r.isCompleted()) continue;
                 GameMap rMap = reqMapCache.get(r);
-                if (rMap == null || rMap.getId() != targetMap.getId()) continue;
+                if (rMap != null && rMap.getId() != targetMap.getId()) continue;
 
                 Requirement.RequirementType type = r.getRequirementType();
                 if (isKillType(type) && npcInfos != null && !npcInfos.isEmpty()) {
