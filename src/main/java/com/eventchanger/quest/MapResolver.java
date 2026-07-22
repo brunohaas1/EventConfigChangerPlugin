@@ -365,13 +365,13 @@ public class MapResolver {
         // 3. Fallback text rules
         if (mapIds.isEmpty() && reqDesc != null && !reqDesc.isEmpty()) {
             String normalized = MissionMapLoader.normalize(reqDesc);
-            mapIds.addAll(getFallbackMapIdsForNpc(normalized));
+            mapIds.addAll(getFallbackMapIdsForNpc(normalized, reqDesc));
         }
 
         return mapIds;
     }
 
-    public java.util.Set<Integer> getFallbackMapIdsForNpc(String cleanReq) {
+    public java.util.Set<Integer> getFallbackMapIdsForNpc(String cleanReq, String reqDesc) {
         java.util.Set<Integer> ids = new java.util.HashSet<>();
         if (cleanReq == null || cleanReq.isEmpty()) return ids;
 
@@ -401,7 +401,15 @@ public class MapResolver {
 
         // Bosses
         if (cleanReq.contains("boss")) {
-            if (cleanReq.contains("kristallon") || cleanReq.contains("kristallin") || 
+            if (cleanReq.contains("streuner")) {
+                boolean isStreunerR = reqDesc != null && (reqDesc.contains("StreuneR") || reqDesc.contains("StreunerR") || reqDesc.toLowerCase().contains("streuner-r") || reqDesc.toLowerCase().contains("streuner r"));
+                if (isStreunerR) {
+                    addMapId(ids, x8);
+                } else {
+                    addMapId(ids, x2);
+                    addMapId(ids, "4-5");
+                }
+            } else if (cleanReq.contains("kristallon") || cleanReq.contains("kristallin") || 
                 cleanReq.contains("protegit") || cleanReq.contains("cubikon")) {
                 addMapId(ids, x7);
                 addMapId(ids, "4-5");
@@ -417,7 +425,7 @@ public class MapResolver {
             } else if (cleanReq.contains("mordon") || cleanReq.contains("saimon")) {
                 addMapId(ids, x3);
                 addMapId(ids, "4-5");
-            } else if (cleanReq.contains("streuner") || cleanReq.contains("lordakia")) {
+            } else if (cleanReq.contains("lordakia")) {
                 addMapId(ids, x2);
                 addMapId(ids, "4-5");
             }
