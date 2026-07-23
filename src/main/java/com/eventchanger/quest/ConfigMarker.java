@@ -630,6 +630,15 @@ public class ConfigMarker {
             if (info == null) continue;
             Set<Integer> mapIds = info.getMapIds();
             if (mapIds != null && mapIds.contains(targetMap.getId())) {
+                String npcName = npcBoxMatcher.getNpcName(entry);
+                if (npcName != null) {
+                    String npcLower = npcName.toLowerCase();
+                    if (npcLower.contains("blighted") || npcLower.contains("plague") || npcLower.contains("praga")
+                            || npcLower.contains("mindfire") || npcLower.contains("mind fire")
+                            || npcLower.contains("gygerthrall") || npcLower.contains("protegit") || npcLower.contains("cubikon")) {
+                        continue;
+                    }
+                }
                 desiredNpcKeys.add(entry.getKey());
                 marked++;
             }
