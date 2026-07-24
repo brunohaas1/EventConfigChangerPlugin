@@ -185,10 +185,10 @@ public class NpcBoxMatcher {
         if (questDesc.contains("bonus") && boxName.contains("bonus")) return true;
         if (questDesc.contains("cargo") && (boxName.contains("cargo") || boxName.contains("from_ship"))) return true;
         if (questDesc.contains("minerio") && (boxName.contains("cargo") || boxName.contains("from_ship"))) return true;
-        // CORREÇÃO: Prometid, Duranium e Promerium só podem ser coletados de caixas
-        // from_ship (carga dropada por NPCs), NÃO das caixas ore_*. Esses minérios
-        // não têm mapeamento ore_N, então sem esta regra a missão não marcava nada.
-        if ((questDesc.contains("prometid") || questDesc.contains("duranium") || questDesc.contains("promerium"))
+        // CORREÇÃO: Prometid, Duranium, Promerium e também minérios crus (Prometium, Endurium, Terbium)
+        // em grandes quantidades podem ser coletados de caixas from_ship / cargo dropadas por NPCs.
+        if ((questDesc.contains("prometid") || questDesc.contains("duranium") || questDesc.contains("promerium")
+                || questDesc.contains("prometium") || questDesc.contains("endurium") || questDesc.contains("terbium"))
                 && (boxName.contains("from_ship") || boxName.contains("cargo"))) {
             return true;
         }
@@ -226,7 +226,9 @@ public class NpcBoxMatcher {
         String type = box.getTypeName() != null ? box.getTypeName().toLowerCase() : "";
         String desc = MissionMapLoader.normalize(questDesc);
 
-        if (desc.contains("cargo") || desc.contains("minerio") || desc.contains("ore") || desc.contains("materia") || desc.contains("promerium") || desc.contains("duranium") || desc.contains("palladium")) {
+        if (desc.contains("cargo") || desc.contains("minerio") || desc.contains("ore") || desc.contains("materia") 
+                || desc.contains("promerium") || desc.contains("duranium") || desc.contains("palladium")
+                || desc.contains("prometium") || desc.contains("endurium") || desc.contains("terbium")) {
             return type.contains("cargo") || type.contains("ore") || type.contains("solus") || type.contains("mineral") || type.contains("terrabia") || type.contains("from_ship") || type.contains("palladium") || type.contains("ore_8");
         }
         if (desc.contains("agatus")) {

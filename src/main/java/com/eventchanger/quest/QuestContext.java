@@ -332,7 +332,8 @@ public class QuestContext {
         if (t == RequirementType.SELL_ORE) {
             return d.contains("prometid") || d.contains("duranium") || d.contains("promerium");
         }
-        return d.contains("prometid") || d.contains("duranium") || d.contains("promerium");
+        return d.contains("prometid") || d.contains("duranium") || d.contains("promerium")
+                || d.contains("prometium") || d.contains("endurium") || d.contains("terbium");
     }
 
     /**

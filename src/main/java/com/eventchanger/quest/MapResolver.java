@@ -732,8 +732,9 @@ public class MapResolver {
             if (oreMap != null && (!enforceBlacklist || !isMapBlacklisted(oreMap))) return oreMap;
         }
         if (normalized.contains("prometium") || normalized.contains("endurium") || normalized.contains("terbium")) {
-            GameMap oreMap = getCompanyMap("1-2", "2-2", "3-2");
-            if (oreMap != null && (!enforceBlacklist || !isMapBlacklisted(oreMap))) return oreMap;
+            // Não força mapa X-2 para minérios crus. Eles podem ser coletados de caixas
+            // from_ship em qualquer mapa (ou no mapa preferido de coleta configurado).
+            return null;
         }
 
         // 2. NPC hardcoded rules
