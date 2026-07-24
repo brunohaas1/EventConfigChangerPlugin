@@ -362,6 +362,11 @@ public class ConfigMarker {
                     botConfig.PET.MODULE_ID = eu.darkbot.api.game.enums.PetGear.ENEMY_LOCATOR;
                     logger.logDebug("Configurando PET do bot para Enemy Locator");
                 }
+
+                // Liga o PET via API no jogo
+                if (!ctx.petAPI.isEnabled()) {
+                    ctx.petAPI.setEnabled(true);
+                }
             }
         } catch (Exception e) {
             logger.logDebug("Erro ao configurar PET no bot: " + e.getMessage());
@@ -380,6 +385,10 @@ public class ConfigMarker {
                     if (botConfig.PET.MODULE_ID != ctx.originalPetConfigModuleId) {
                         botConfig.PET.MODULE_ID = ctx.originalPetConfigModuleId;
                     }
+
+                    // Restaura o estado de ligado/desligado do PET via API no jogo (chama de volta/desliga se originalmente desligado)
+                    ctx.petAPI.setEnabled(ctx.originalPetConfigEnabled);
+
                     logger.logDebug("Restaurando config original do PET no bot: enabled=" + ctx.originalPetConfigEnabled + ", module=" + ctx.originalPetConfigModuleId);
                 }
             } catch (Exception e) {
