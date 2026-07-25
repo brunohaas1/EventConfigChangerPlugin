@@ -112,7 +112,7 @@ public class SellingHandler {
         ctx.tradeWindowOpen = false;
 
         // Navigate to home map
-        GameMap homeMap = mapResolver.resolveHomeMap();
+        GameMap homeMap = mapResolver.resolveHomeMap(true);
         if (homeMap == null) {
             ctx.currentAction = "[Venda] Nao foi possivel encontrar o mapa base.";
             return;
@@ -218,7 +218,7 @@ public class SellingHandler {
                 ctx.oreAPI.sellOre(ore);
             }
         } else {
-            GameMap homeMap = mapResolver.resolveHomeMap();
+            GameMap homeMap = mapResolver.resolveHomeMap(true);
             if (homeMap == null) {
                 ctx.currentAction = "[Venda] Nao foi possivel encontrar o mapa base.";
                 return;

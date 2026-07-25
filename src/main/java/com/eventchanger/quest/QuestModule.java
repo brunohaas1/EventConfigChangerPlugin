@@ -222,6 +222,12 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
                 && currentMap.getId() == homeMapForCheck.getId();
         boolean isQuestGuiVisible = ctx.questGui != null && ctx.questGui.isVisible();
 
+        // Se o bot tem uma missão ativa e está longe do QuestGiver, não considera
+        // que está na base aceitando (isso evita ser "sequestrado" no mapa 1-8).
+        if (isOnHomeMapNow && ctx.currentReq != null && !isNearQuestGiver() && !isQuestGuiVisible) {
+            isOnHomeMapNow = false;
+        }
+
         if (isOnHomeMapNow && isQuestGuiVisible && QuestConfig.QuestFlowConfig.AUTO_ACCEPT) {
             if (ctx.acceptCycleComplete) {
                 // CORREÇÃO DO TRAVAMENTO: quando o ciclo de aceite foi completado
@@ -391,6 +397,13 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         if (homeMap != null) {
             GameMap currentMap = ctx.heroAPI.getMap();
             isOnHomeMap = currentMap != null && currentMap.getId() == homeMap.getId();
+            
+            // Se o bot tem uma missão ativa e está longe do QuestGiver, não considera
+            // que está na base aceitando (isso evita ser "sequestrado" no mapa 1-8).
+            boolean isQuestGuiVisible = ctx.questGui != null && ctx.questGui.isVisible();
+            if (isOnHomeMap && quest != null && !quest.isCompleted() && !isNearQuestGiver() && !isQuestGuiVisible) {
+                isOnHomeMap = false;
+            }
         }
 
         // CORREÇÃO: Se estamos no mapa base com auto-accept ativo e ainda não
@@ -882,6 +895,19 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         if (!ctx.attackAPI.isAttacking()) {
             ctx.heroAPI.triggerLaserAttack();
         }
+    }
+
+    private boolean isNearQuestGiver() {
+        if (ctx.entitiesAPI == null) return false;
+        java.util.Collection<? extends eu.darkbot.api.game.entities.Station> stations = ctx.entitiesAPI.getStations();
+        if (stations != null) {
+            for (eu.darkbot.api.game.entities.Station s : stations) {
+                if (s instanceof eu.darkbot.api.game.entities.Station.QuestGiver) {
+                    return s.distanceTo(ctx.heroAPI) < 2000;
+                }
+            }
+        }
+        return false;
     }
 
     private boolean isTemporalModule(Module module) {
