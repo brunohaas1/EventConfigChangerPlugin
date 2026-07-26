@@ -824,9 +824,16 @@ public class QuestGiverInteraction {
         if (questGiver == null) {
             GameMap nextMap = mapResolver.resolveHomeMap();
             if (nextMap != null) {
-                ctx.currentAction = "[QuestCache] Voando para " + nextMap.getName() + " para ler cache...";
-                mapResolver.updateBotWorkingMap(nextMap);
-                mapResolver.navigateToMap(nextMap, now);
+                GameMap current = ctx.heroAPI.getMap();
+                if (current != null && current.getId() == nextMap.getId()) {
+                    ctx.setShipMode("roam");
+                    ctx.movementAPI.moveTo(10000, 6200);
+                    ctx.currentAction = "[QuestCache] Procurando QuestGiver no mapa base... voando ao centro";
+                } else {
+                    ctx.currentAction = "[QuestCache] Voando para " + nextMap.getName() + " para ler cache...";
+                    mapResolver.updateBotWorkingMap(nextMap);
+                    mapResolver.navigateToMap(nextMap, now);
+                }
             } else {
                 ctx.questCacheInitialized = true; // Fallback
             }
@@ -870,6 +877,9 @@ public class QuestGiverInteraction {
         // Window is open: wait a fixed window for memory to update, then close and finish.
         // Use a dedicated timestamp (set when we first tried to open) so the wait is stable
         // and not reset every tick while the window is still opening.
+        if (ctx.heroAPI.isMoving()) {
+            ctx.movementAPI.stop();
+        }
         if (now - ctx.questCacheOpenAttemptTime > 2000) {
             // Mantém a janela aberta: o GuiCloser do core a fecha sozinho após ~5s e o
             // loop de aceite a reabre via trySelect quando isQuestGiverOpen() ficar false.
@@ -1004,24 +1014,22 @@ public class QuestGiverInteraction {
         }
 
         if (questStation == null) {
-            ctx.currentAction = "[AcceptQuest] QuestGiver nao encontrado no mapa base. Verificando novamente...";
-            GameMap curMap = ctx.heroAPI.getMap();
-            StringBuilder stationTypes = new StringBuilder();
-            if (stations != null) {
-                for (Station s : stations) {
-                    stationTypes.append(s.getClass().getSimpleName()).append(", ");
+            if (homeMap != null) {
+                GameMap current = ctx.heroAPI.getMap();
+                if (current != null && current.getId() == homeMap.getId()) {
+                    // Já estamos no mapa base, mas a estação está fora do radar. Voa ao centro!
+                    ctx.setShipMode("roam");
+                    ctx.movementAPI.moveTo(10000, 6200);
+                    ctx.currentAction = "[AcceptQuest] Procurando QuestGiver no mapa base... voando ao centro";
+                } else {
+                    // Não estamos no mapa base! Navega para lá.
+                    ctx.currentAction = "[AcceptQuest] Voando para " + homeMap.getName() + " para aceitar quests...";
+                    mapResolver.updateBotWorkingMap(homeMap);
+                    mapResolver.navigateToMap(homeMap, now);
                 }
+            } else {
+                ctx.currentAction = "[AcceptQuest] QuestGiver nao encontrado e homeMap nao definido.";
             }
-            String typesStr = stationTypes.length() > 0
-                    ? stationTypes.substring(0, stationTypes.length() - 2)
-                    : "nenhum";
-            logger.logDebug("[AcceptQuest] Nenhuma station do tipo QuestGiver em getStations() (total="
-                    + (stations != null ? stations.size() : 0)
-                    + ", mapa=" + (curMap != null ? curMap.getName() : "null")
-                    + ", tipos=" + typesStr + ")");
-            // Tenta voar um pouco para o centro para descobrir entidades
-            ctx.setShipMode("roam");
-            ctx.movementAPI.moveTo(10000, 6200);
             return;
         }
 
@@ -1176,6 +1184,11 @@ public class QuestGiverInteraction {
             return;
         }
 
+        // Garante parada completa da nave ao interagir com o QuestGiver
+        if (ctx.heroAPI.isMoving()) {
+            ctx.movementAPI.stop();
+        }
+
         // Retângulo real da janela usado para os cliques
         WindowRect diagWin = computeQuestGiverWindow();
 
@@ -1314,11 +1327,33 @@ public class QuestGiverInteraction {
             // Aqui já selecionamos a quest na GUI, então getSelectedQuest()/getDisplayedQuest()
             // devem retornar a quest com seus requirements completos.
             if (selectedIsCandidate && !ctx.config.acceptPvpQuests) {
-                boolean isPvpByReqs = false;
+                // 1. Verifica pelo título do Item selecionado (já disponível na lista)
+                if (selected.getTitle() != null && isPvpText(selected.getTitle())) {
+                    logger.logDiagnostic("[AcceptQuest] Quest id=" + selected.getId()
+                            + " title='" + selected.getTitle() + "' RECUSADA pelo titulo PvP e acceptPvpQuests=false.");
+                    System.out.println("[QuestModule] Quest PVP recusada (titulo): " + selected.getTitle());
+                    ctx.acceptRowIndex++;
+                    ctx.acceptNeedSelect = true;
+                    return;
+                }
+
+                // 2. Verifica pelos requirements (precisa esperar carregar no core)
                 eu.darkbot.api.managers.QuestAPI.Quest selQuest = ctx.questAPI.getSelectedQuest();
                 if (selQuest == null) selQuest = ctx.questAPI.getDisplayedQuest();
+
+                if (selQuest == null || selQuest.getId() != selected.getId()) {
+                    if (now - ctx.selectClickTime < 3000) {
+                        logger.logDiagnostic("[AcceptQuest] Aguardando core carregar requirements para quest id=" + selected.getId() + " '" + selected.getTitle() + "'...");
+                        ctx.acceptNeedAccept = true; // Mantém no estado de aceite para o próximo tick
+                        return;
+                    } else {
+                        logger.logDiagnostic("[AcceptQuest] Timeout esperando/carregando requirements da quest id=" + selected.getId() + ". Prosseguindo.");
+                    }
+                }
+
+                boolean isPvpByReqs = false;
                 if (selQuest != null && selQuest.getId() == selected.getId()) {
-                    // Verifica título
+                    // Verifica título carregado
                     if (selQuest.getTitle() != null && isPvpText(selQuest.getTitle())) {
                         isPvpByReqs = true;
                     }
@@ -1335,7 +1370,8 @@ public class QuestGiverInteraction {
                                         && (r.getRequirementType() == eu.darkbot.api.managers.QuestAPI.Requirement.RequirementType.KILL_PLAYERS
                                         || r.getRequirementType() == eu.darkbot.api.managers.QuestAPI.Requirement.RequirementType.DAMAGE_PLAYERS
                                         || r.getRequirementType() == eu.darkbot.api.managers.QuestAPI.Requirement.RequirementType.DAMAGE_ENEMY_PLAYERS
-                                        || r.getRequirementType().name().contains("PLAYER"))) {
+                                        || r.getRequirementType().name().contains("PLAYER")
+                                        || r.getRequirementType().name().contains("PLAYERS"))) {
                                     isPvpByReqs = true;
                                     break;
                                 }
@@ -1343,6 +1379,7 @@ public class QuestGiverInteraction {
                         }
                     }
                 }
+
                 if (isPvpByReqs) {
                     logger.logDiagnostic("[AcceptQuest] Quest SELECIONADA id=" + selected.getId()
                             + " title='" + selected.getTitle() + "' RECUSADA: PvP detectado nos requirements e acceptPvpQuests=false.");
@@ -1692,9 +1729,11 @@ public class QuestGiverInteraction {
         return t.contains("jogador") || t.contains("player") || t.contains("pvp")
                 || t.contains("eic") || t.contains("mmo") || t.contains("vru") || t.contains("vrú")
                 || t.contains("piloto") || t.contains("pilotos")
-                || t.contains("inimigo") || t.contains("inimiga") || t.contains("guerra")
+                || t.contains("guerra")
                 || t.contains("outra companhia") || t.contains("outras companhias")
-                || t.contains("companhia inimiga") || t.contains("companhias inimigas");
+                || t.contains("companhia inimiga") || t.contains("companhias inimigas")
+                || t.contains("danifique naves") || t.contains("caça às bruxas")
+                || t.contains("naves de outra") || t.contains("naves de outros");
     }
 
     private int getAcceptRetryCount(int questId) {
