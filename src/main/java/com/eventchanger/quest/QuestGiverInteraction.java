@@ -878,7 +878,7 @@ public class QuestGiverInteraction {
         // Use a dedicated timestamp (set when we first tried to open) so the wait is stable
         // and not reset every tick while the window is still opening.
         if (ctx.heroAPI.isMoving()) {
-            ctx.movementAPI.stop();
+            ctx.movementAPI.stop(true);
         }
         if (now - ctx.questCacheOpenAttemptTime > 2000) {
             // Mantém a janela aberta: o GuiCloser do core a fecha sozinho após ~5s e o
@@ -1186,7 +1186,7 @@ public class QuestGiverInteraction {
 
         // Garante parada completa da nave ao interagir com o QuestGiver
         if (ctx.heroAPI.isMoving()) {
-            ctx.movementAPI.stop();
+            ctx.movementAPI.stop(true);
         }
 
         // Retângulo real da janela usado para os cliques

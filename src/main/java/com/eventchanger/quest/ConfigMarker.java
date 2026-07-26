@@ -375,10 +375,10 @@ public class ConfigMarker {
 
     private void disablePetLocatorIfEnabled() {
         if (ctx.petAPI == null) return;
-        if (ctx.hasSavedOriginalPetConfig) {
-            try {
-                com.github.manolo8.darkbot.config.Config botConfig = com.github.manolo8.darkbot.Main.INSTANCE.config;
-                if (botConfig != null && botConfig.PET != null) {
+        try {
+            com.github.manolo8.darkbot.config.Config botConfig = com.github.manolo8.darkbot.Main.INSTANCE.config;
+            if (botConfig != null && botConfig.PET != null) {
+                if (ctx.hasSavedOriginalPetConfig) {
                     if (botConfig.PET.ENABLED != ctx.originalPetConfigEnabled) {
                         botConfig.PET.ENABLED = ctx.originalPetConfigEnabled;
                     }
@@ -390,11 +390,21 @@ public class ConfigMarker {
                     ctx.petAPI.setEnabled(ctx.originalPetConfigEnabled);
 
                     logger.logDebug("Restaurando config original do PET no bot: enabled=" + ctx.originalPetConfigEnabled + ", module=" + ctx.originalPetConfigModuleId);
+                    ctx.hasSavedOriginalPetConfig = false;
+                } else {
+                    // SE NÃO temos a config original salva (novo run/inicialização), mas o bot
+                    // está configurado com ENEMY_LOCATOR, significa que sobrou de uma execução anterior.
+                    // Desliga o locator e o PET por segurança.
+                    if (botConfig.PET.MODULE_ID == eu.darkbot.api.game.enums.PetGear.ENEMY_LOCATOR) {
+                        botConfig.PET.MODULE_ID = eu.darkbot.api.game.enums.PetGear.PASSIVE;
+                        botConfig.PET.ENABLED = false;
+                        ctx.petAPI.setEnabled(false);
+                        logger.logDebug("Corrigindo vazamento de configuracao: desativando PET Enemy Locator residual de execucao anterior.");
+                    }
                 }
-            } catch (Exception e) {
-                logger.logDebug("Erro ao restaurar config do PET no bot: " + e.getMessage());
             }
-            ctx.hasSavedOriginalPetConfig = false;
+        } catch (Exception e) {
+            logger.logDebug("Erro ao desconfigurar PET no bot: " + e.getMessage());
         }
     }
 

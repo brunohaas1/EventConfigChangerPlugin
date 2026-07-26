@@ -36,7 +36,6 @@ dependencies {
 tasks.jar {
     archiveFileName.set("EventConfigChanger.jar")
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
-    from(sourceSets.main.get().output)
 
     exclude("META-INF/*.SF")
     exclude("META-INF/*.DSA")
