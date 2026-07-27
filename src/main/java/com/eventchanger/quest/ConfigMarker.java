@@ -170,6 +170,7 @@ public class ConfigMarker {
                     reqState.append(r.getDescription()).append(r.getProgress()).append("|");
                 }
             }
+            reqState.append("-ignoreCargo:").append(ctx.ignoreCargoForCurrentReq);
         } else {
             reqState.append("null-quest").append(targetMap.getId());
         }

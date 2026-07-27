@@ -212,6 +212,8 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
             makeDecision(now);
         }
 
+        verifyCargoQuestProgress(now);
+
         // CORREÇÃO RADICAL DO "PING-PONG": Se a GUI do QuestGiver está visível
         // no mapa base, PULAR toda a lógica de navegação, working_map e ação.
         // O makeDecision() já chamou autoAcceptNewQuest() se necessário.
@@ -845,6 +847,60 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
                 || t == RequirementType.KILL_NPCS
                 || t == RequirementType.DAMAGE_NPCS
                 || t == RequirementType.KILL_ANY;
+    }
+
+    private void verifyCargoQuestProgress(long now) {
+        if (ctx.currentReq != null && isLootType(ctx.currentReq.getRequirementType())) {
+            double currentProgress = ctx.currentReq.getProgress();
+
+            // Rastreia caixas from_ship ou cargo que estão muito próximas da nave
+            if (ctx.entitiesAPI != null) {
+                for (eu.darkbot.api.game.entities.Box box : ctx.entitiesAPI.getBoxes()) {
+                    if (box == null || !box.isValid()) continue;
+                    String type = box.getTypeName();
+                    if (type == null) continue;
+                    String typeLower = type.toLowerCase();
+
+                    // Se estivermos bem em cima de uma caixa de carga
+                    if ((typeLower.contains("from_ship") || typeLower.contains("cargo"))
+                            && ctx.heroAPI.distanceTo(box) < 200.0) {
+                        
+                        if (ctx.lastCargoCollectTime == 0 || now - ctx.lastCargoCollectTime > 4000) {
+                            ctx.lastCargoCollectTime = now;
+                            ctx.lastProgressBeforeCargoCollect = currentProgress;
+                            ctx.waitingForCargoProgressVerify = true;
+                            logger.logDebug("[QuestModule] Detectou navio em cima de caixa de carga (" + type + "). Monitorando progresso. Progresso atual: " + currentProgress);
+                        }
+                    }
+                }
+            }
+
+            // Verifica se o progresso da quest aumentou após coletarmos a caixa
+            if (ctx.waitingForCargoProgressVerify && ctx.lastCargoCollectTime > 0) {
+                long elapsed = now - ctx.lastCargoCollectTime;
+                
+                if (currentProgress > ctx.lastProgressBeforeCargoCollect) {
+                    ctx.waitingForCargoProgressVerify = false;
+                    ctx.lastCargoCollectTime = 0;
+                    ctx.lastProgressBeforeCargoCollect = -1;
+                    logger.logDebug("[QuestModule] Progresso da quest aumentou para " + currentProgress + ". Caixa de carga contou!");
+                } else if (elapsed > 3500) {
+                    ctx.waitingForCargoProgressVerify = false;
+                    ctx.lastCargoCollectTime = 0;
+                    ctx.lastProgressBeforeCargoCollect = -1;
+                    
+                    // Coloca caixas de carga na blacklist para este requisito específico
+                    ctx.ignoreCargoForCurrentReq = true;
+                    logger.logDebug("[QuestModule] Progresso NAO aumentou apos 3.5s de coletar caixa de carga. Ignorando caixas from_ship/cargo para este requisito.");
+                }
+            }
+        } else {
+            // Reseta o estado quando o requisito muda ou não é de coleta/minério
+            ctx.ignoreCargoForCurrentReq = false;
+            ctx.waitingForCargoProgressVerify = false;
+            ctx.lastCargoCollectTime = 0;
+            ctx.lastProgressBeforeCargoCollect = -1;
+        }
     }
 
     private boolean isLootType(RequirementType t) {

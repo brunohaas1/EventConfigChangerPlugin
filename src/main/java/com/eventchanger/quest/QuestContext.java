@@ -197,6 +197,12 @@ public class QuestContext {
     public Integer originalWorkingMapId = null;
     public Integer lastSetWorkingMapId = null;
 
+    // ---- Cargo box blacklist verification for collecting quests ----
+    public boolean ignoreCargoForCurrentReq = false;
+    public double lastProgressBeforeCargoCollect = -1;
+    public long lastCargoCollectTime = 0;
+    public boolean waitingForCargoProgressVerify = false;
+
     // ---- General state ----
     public String currentAction = "Aguardando...";
     public long lastAcceptAttemptTime = 0L;
