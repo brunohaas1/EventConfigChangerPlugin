@@ -152,6 +152,21 @@ public class ConfigMarker {
         Map<Requirement, GameMap> reqMapCache = new java.util.HashMap<>();
         StringBuilder reqState = new StringBuilder();
         if (quest != null) {
+            // Cache requirements of the current displayed quest
+            if (!ctx.acceptedQuestRequirementsCache.containsKey(quest.getId())) {
+                List<QuestContext.CachedRequirement> crList = new java.util.ArrayList<>();
+                if (quest.getRequirements() != null) {
+                    for (Requirement r : quest.getRequirements()) {
+                        if (r == null || r.isCompleted()) continue;
+                        GameMap rMap = mapResolver.resolveQuestTargetMap(quest, r);
+                        Integer mapId = rMap != null ? rMap.getId() : null;
+                        crList.add(new QuestContext.CachedRequirement(r.getDescription(), r.getRequirementType(), mapId));
+                    }
+                }
+                ctx.acceptedQuestRequirementsCache.put(quest.getId(), crList);
+                ctx.questGiverInteraction.saveAcceptedQuestRequirementsToFile();
+            }
+
             for (Requirement r : quest.getRequirements()) {
                 if (r.isCompleted()) continue;
                 // CORREÇÃO: usa resolveQuestTargetMap(quest, r) em vez de
@@ -268,8 +283,8 @@ public class ConfigMarker {
         }
 
         // Keep secondary accepted quests marked only when enabled
-        if (npcInfos != null && ctx.config != null && QuestConfig.QuestFlowConfig.KEEP_SECONDARY_QUESTS_MARKED) {
-            markSecondaryAcceptedQuestNpcs(npcInfos, quest, desiredNpcKeys, targetMap, stateChanged);
+        if (ctx.config != null && QuestConfig.QuestFlowConfig.KEEP_SECONDARY_QUESTS_MARKED) {
+            markSecondaryAcceptedQuestNpcs(npcInfos, boxInfos, quest, desiredNpcKeys, desiredBoxKeys, targetMap, stateChanged);
         }
 
         if (boxInfos != null && ctx.config != null && ctx.config.loot.alwaysCollectEventOres) {
@@ -686,87 +701,69 @@ public class ConfigMarker {
         logger.logDebug("[OreFromShip] marcadas " + marked + " caixas de carga (from_ship) para coleta");
     }
 
-    private void markSecondaryAcceptedQuestNpcs(Map<String, NpcInfo> npcInfos, Quest displayedQuest,
-                                                Set<String> desiredNpcKeys, GameMap targetMap, boolean logMatches) {
+    private void markSecondaryAcceptedQuestNpcs(Map<String, NpcInfo> npcInfos, Map<String, BoxInfo> boxInfos,
+                                                Quest displayedQuest, Set<String> desiredNpcKeys, Set<String> desiredBoxKeys,
+                                                GameMap targetMap, boolean logMatches) {
         List<? extends QuestListItem> quests = ctx.questAPI.getCurrestQuests();
         if (quests != null && !quests.isEmpty()) {
             ctx.questGiverInteraction.cacheAcceptedQuestTitles(quests);
         }
-        if (ctx.acceptedQuestTitleCache.isEmpty()) return;
+        if (ctx.acceptedQuestRequirementsCache.isEmpty()) return;
 
         int totalSecondary = 0;
-        int maxSecondary = ctx.config != null && QuestConfig.QuestFlowConfig.MAX_QUESTS_PER_MAP > 0
-                ? QuestConfig.QuestFlowConfig.MAX_QUESTS_PER_MAP
-                : Integer.MAX_VALUE;
-
-        for (Map.Entry<Integer, String> entry : ctx.acceptedQuestTitleCache.entrySet()) {
-            if (totalSecondary >= maxSecondary) break;
+        for (Map.Entry<Integer, List<QuestContext.CachedRequirement>> entry : ctx.acceptedQuestRequirementsCache.entrySet()) {
             Integer questId = entry.getKey();
-            String questTitle = entry.getValue();
-            if (questId == null || questTitle == null || questTitle.isEmpty()) continue;
+            if (questId == null) continue;
             if (displayedQuest != null && questId == displayedQuest.getId()) continue;
 
             totalSecondary++;
+            List<QuestContext.CachedRequirement> reqs = entry.getValue();
+            if (reqs == null) continue;
 
-            // Primeiro tenta resolver via mapa externo (título -> descrição)
-            String objectiveText = missionMapLoader.resolveQuestObjectiveText(questTitle, true);
-
-            // Se não encontrou no mapa externo, tenta matching direto do título
-            if (objectiveText == null || objectiveText.isEmpty()) {
-                objectiveText = questTitle;
-            }
-
-            if (objectiveText == null || objectiveText.isEmpty()) {
-                continue;
-            }
-
-            // Verifica se o mapa destino desta quest secundária é o mesmo que o targetMap atual
-            // Para isso, tenta resolver o mapa a partir do objectiveText
-            boolean sameMap = true; // default: assume mesmo mapa
-            if (targetMap != null) {
-                // Cria um requirement temporário para resolver o mapa
-                GameMap questMap = mapResolver.resolveMapFromText(objectiveText);
-                if (questMap != null && questMap.getId() != targetMap.getId()) {
-                    sameMap = false; // esta quest é de outro mapa, não marcar NPCs
+            for (QuestContext.CachedRequirement cr : reqs) {
+                // Filtro de mapa: se o requisito especificar um mapa e ele for diferente do mapa atual
+                if (cr.targetMapId != null && targetMap != null && cr.targetMapId != targetMap.getId()) {
+                    continue;
                 }
-            }
 
-            if (!sameMap) continue;
-
-            // Tenta matching com strict=false primeiro (mais flexível), depois strict=true
-            boolean matched = false;
-            for (Map.Entry<String, NpcInfo> npcEntry : npcInfos.entrySet()) {
-                String npcName = npcBoxMatcher.getNpcName(npcEntry);
-                if (npcName == null || npcName.isEmpty()) continue;
-
-                // Tenta matching flexível primeiro
-                if (npcBoxMatcher.npcMatchesQuestDesc(npcName, objectiveText, false)) {
-                    desiredNpcKeys.add(npcEntry.getKey());
-                    matched = true;
-                    if (logMatches) {
-                        logger.appendPluginLog("[QuestModule] MATCH SECUNDARIA (flex): '" + questTitle + "' -> '" + npcName + "' usando '" + objectiveText + "'");
+                if (isKillType(cr.type) && npcInfos != null && !npcInfos.isEmpty()) {
+                    for (Map.Entry<String, NpcInfo> npcEntry : npcInfos.entrySet()) {
+                        String npcName = npcBoxMatcher.getNpcName(npcEntry);
+                        if (npcName == null || npcName.isEmpty()) continue;
+                        if (npcBoxMatcher.npcMatchesQuestDesc(npcName, cr.description)) {
+                            desiredNpcKeys.add(npcEntry.getKey());
+                            if (logMatches) {
+                                logger.appendPluginLogThrottled(
+                                        "MATCH_SECUNDARIA_NPC:" + cr.description,
+                                        "[QuestModule] MATCH SECUNDARIA: '" + cr.description + "' casou com NPC: " + npcName,
+                                        10000L);
+                            }
+                        }
                     }
                 }
-            }
-
-            // Se não encontrou com flexível, tenta com strict=true (mais preciso)
-            if (!matched) {
-                for (Map.Entry<String, NpcInfo> npcEntry : npcInfos.entrySet()) {
-                    String npcName = npcBoxMatcher.getNpcName(npcEntry);
-                    if (npcName == null || npcName.isEmpty()) continue;
-                    if (npcBoxMatcher.npcMatchesQuestDesc(npcName, objectiveText, true)) {
-                        desiredNpcKeys.add(npcEntry.getKey());
-                        matched = true;
-                        if (logMatches) {
-                            logger.appendPluginLog("[QuestModule] MATCH SECUNDARIA (strict): '" + questTitle + "' -> '" + npcName + "' usando '" + objectiveText + "'");
+                if (isLootType(cr.type) && boxInfos != null && !boxInfos.isEmpty()) {
+                    String desc = cr.description;
+                    String cleanBoxName = ctx.normalizedDescCache.get(desc);
+                    if (cleanBoxName == null) {
+                        cleanBoxName = MissionMapLoader.normalize(desc).toLowerCase();
+                        ctx.normalizedDescCache.put(desc, cleanBoxName);
+                    }
+                    for (Map.Entry<String, BoxInfo> boxEntry : boxInfos.entrySet()) {
+                        String boxName = boxEntry.getKey() != null ? boxEntry.getKey().toLowerCase() : "";
+                        if (npcBoxMatcher.matchesBoxName(boxName, cleanBoxName)) {
+                            desiredBoxKeys.add(boxEntry.getKey());
+                            if (logMatches) {
+                                logger.appendPluginLogThrottled(
+                                        "MATCH_SECUNDARIA_BOX:" + cr.description,
+                                        "[QuestModule] MATCH SECUNDARIA: '" + cr.description + "' casou com BOX: " + boxEntry.getKey(),
+                                        10000L);
+                            }
                         }
                     }
                 }
             }
         }
-        // Throttle: este log era emitido a cada tick (~40ms) gerando spam no console.
-        // Agora só repete no máximo a cada 10s para a mesma contagem.
-        logger.logDebugThrottled("Quest secundária processadas no mapa: " + totalSecondary, 10000L);
+        logger.logDebugThrottled("Quests secundarias processadas no mapa: " + totalSecondary, 10000L);
     }
 
     private void markAlwaysCollectOres(Map<String, BoxInfo> boxInfos, Set<String> desiredBoxKeys, Quest quest) {

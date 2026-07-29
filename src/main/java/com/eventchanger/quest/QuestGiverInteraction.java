@@ -8,6 +8,9 @@ import eu.darkbot.api.game.other.Point;
 import eu.darkbot.api.managers.GameScreenAPI;
 import eu.darkbot.api.managers.QuestAPI;
 import eu.darkbot.api.managers.QuestAPI.QuestListItem;
+import eu.darkbot.api.managers.QuestAPI.Quest;
+import eu.darkbot.api.managers.QuestAPI.Requirement;
+import eu.darkbot.api.managers.QuestAPI.Requirement.RequirementType;
 
 import com.github.manolo8.darkbot.Main;
 
@@ -446,6 +449,79 @@ public class QuestGiverInteraction {
         }
     }
 
+    public void saveAcceptedQuestRequirementsToFile() {
+        try {
+            Path base = new MissionMapLoader(ctx, logger).resolvePluginDataDir();
+            Path file = base.resolve(QuestContext.ACCEPTED_QUESTS_REQUIREMENTS_CACHE_FILE);
+            StringBuilder sb = new StringBuilder();
+            sb.append("# Cache de requisitos de quests aceitas - gerado automaticamente pelo QuestModule\n");
+            sb.append("# Formato: questId=desc|type|targetMapId;desc|type|targetMapId;...\n");
+            for (java.util.Map.Entry<Integer, List<QuestContext.CachedRequirement>> entry : ctx.acceptedQuestRequirementsCache.entrySet()) {
+                sb.append(entry.getKey()).append("=");
+                List<QuestContext.CachedRequirement> reqs = entry.getValue();
+                for (int i = 0; i < reqs.size(); i++) {
+                    QuestContext.CachedRequirement cr = reqs.get(i);
+                    String descEscaped = cr.description.replace("|", "\\|").replace(";", "\\;");
+                    sb.append(descEscaped).append("|")
+                      .append(cr.type.name()).append("|")
+                      .append(cr.targetMapId != null ? cr.targetMapId : "null");
+                    if (i < reqs.size() - 1) {
+                        sb.append(";");
+                    }
+                }
+                sb.append("\n");
+            }
+            Files.writeString(file, sb.toString());
+        } catch (Exception e) {
+            System.err.println("[QuestModule] Erro ao salvar cache de requisitos: " + e.getMessage());
+        }
+    }
+
+    public void loadAcceptedQuestRequirementsFromFile() {
+        try {
+            Path base = new MissionMapLoader(ctx, logger).resolvePluginDataDir();
+            Path file = base.resolve(QuestContext.ACCEPTED_QUESTS_REQUIREMENTS_CACHE_FILE);
+            if (!Files.exists(file)) return;
+            ctx.acceptedQuestRequirementsCache.clear();
+            int loaded = 0;
+            for (String line : Files.readAllLines(file)) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) continue;
+                int eq = line.indexOf('=');
+                if (eq < 1) continue;
+                try {
+                    int questId = Integer.parseInt(line.substring(0, eq).trim());
+                    String content = line.substring(eq + 1).trim();
+                    if (content.isEmpty()) continue;
+                    
+                    List<QuestContext.CachedRequirement> list = new java.util.ArrayList<>();
+                    String[] parts = content.split(";");
+                    for (String part : parts) {
+                        String[] fields = part.split("\\|");
+                        if (fields.length >= 2) {
+                            String desc = fields[0].replace("\\|", "|").replace("\\;", ";");
+                            RequirementType type = RequirementType.valueOf(fields[1].trim());
+                            Integer mapId = null;
+                            if (fields.length >= 3 && !fields[2].equals("null")) {
+                                mapId = Integer.parseInt(fields[2].trim());
+                            }
+                            list.add(new QuestContext.CachedRequirement(desc, type, mapId));
+                        }
+                    }
+                    if (!list.isEmpty()) {
+                        ctx.acceptedQuestRequirementsCache.put(questId, list);
+                        loaded++;
+                    }
+                } catch (Exception ignored) {}
+            }
+            if (loaded > 0) {
+                System.out.println("[QuestModule] Cache de requisitos carregado: " + loaded + " quests");
+            }
+        } catch (Exception e) {
+            System.err.println("[QuestModule] Erro ao carregar cache de requisitos: " + e.getMessage());
+        }
+    }
+
     public void cacheAcceptedQuestTitles(List<? extends QuestListItem> quests) {
         if (quests == null || quests.isEmpty()) return;
 
@@ -455,6 +531,7 @@ public class QuestGiverInteraction {
             // Remove completed or activable quests from cache
             if (q.isCompleted() || q.isActivable()) {
                 if (ctx.acceptedQuestTitleCache.remove(q.getId()) != null) changed = true;
+                if (ctx.acceptedQuestRequirementsCache.remove(q.getId()) != null) changed = true;
             }
             // Add active (accepted but not completed) quests to cache
             else if (q.getTitle() != null && !q.getTitle().isEmpty()) {
@@ -466,6 +543,7 @@ public class QuestGiverInteraction {
         }
         if (changed) {
             saveAcceptedQuestCacheToFile();
+            saveAcceptedQuestRequirementsToFile();
         }
     }
 
@@ -1454,6 +1532,23 @@ public class QuestGiverInteraction {
             ctx.nextAcceptRetryTime = 0L;
             ctx.acceptedQuestTitleCache.put(pendingId, pendingTitle);
             saveAcceptedQuestCacheToFile();
+
+            // Cache requirements too!
+            Quest selectedQuest = ctx.questAPI.getSelectedQuest();
+            if (selectedQuest != null && selectedQuest.getId() == pendingId) {
+                List<QuestContext.CachedRequirement> crList = new java.util.ArrayList<>();
+                if (selectedQuest.getRequirements() != null) {
+                    for (Requirement r : selectedQuest.getRequirements()) {
+                        if (r == null || r.isCompleted()) continue;
+                        GameMap rMap = mapResolver.resolveQuestTargetMap(selectedQuest, r);
+                        Integer mapId = rMap != null ? rMap.getId() : null;
+                        crList.add(new QuestContext.CachedRequirement(r.getDescription(), r.getRequirementType(), mapId));
+                    }
+                }
+                ctx.acceptedQuestRequirementsCache.put(pendingId, crList);
+                saveAcceptedQuestRequirementsToFile();
+            }
+
             logger.logDiagnostic("[QuestModule] QUEST ACEITA via QuestGiver: " + pendingId + ":" + pendingTitle);
             logger.appendPluginLog("[QuestModule] QUEST ACEITA via QuestGiver: " + pendingId + ":" + pendingTitle);
             // NÃO fechamos via setVisible() (janela HUD errada). Mantemos a janela

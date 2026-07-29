@@ -292,8 +292,22 @@ public class QuestContext {
     public long cachedRouteTime = 0L;
     public static final long ROUTE_CACHE_TTL_MS = 10_000L;
     public static final String ACCEPTED_QUESTS_CACHE_FILE = "accepted_quests_cache.properties";
+    public static final String ACCEPTED_QUESTS_REQUIREMENTS_CACHE_FILE = "accepted_quests_requirements_cache.properties";
     public long lastCacheSaveTime = 0L;
     public static final long CACHE_SAVE_INTERVAL_MS = 5_000L;
+
+    public static class CachedRequirement {
+        public String description;
+        public RequirementType type;
+        public Integer targetMapId; // ID do mapa ou null para qualquer mapa
+        
+        public CachedRequirement(String description, RequirementType type, Integer targetMapId) {
+            this.description = description;
+            this.type = type;
+            this.targetMapId = targetMapId;
+        }
+    }
+    public final Map<Integer, List<CachedRequirement>> acceptedQuestRequirementsCache = new LinkedHashMap<>();
 
     // ---- Priority order for requirement types ----
     public static final List<RequirementType> PRIORITY = Arrays.asList(

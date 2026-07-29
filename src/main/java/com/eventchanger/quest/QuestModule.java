@@ -67,6 +67,7 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         missionMapLoader.loadExternalMissionMap();
         // Load persisted accepted quests cache (for secondary quests)
         questGiverInteraction.loadAcceptedQuestCacheFromFile();
+        questGiverInteraction.loadAcceptedQuestRequirementsFromFile();
     }
 
     @Override
