@@ -719,6 +719,11 @@ public class MapResolver {
         return null;
     }
 
+    private boolean isLowMap(String mapName) {
+        if (mapName == null) return false;
+        return mapName.contains("-2") || mapName.contains("-3") || mapName.contains("-4");
+    }
+
     private GameMap resolveMapFromNormalizedText(String normalized, String rawReq, boolean enforceBlacklist) {
         if (normalized == null || normalized.isEmpty()) return null;
 
@@ -731,10 +736,41 @@ public class MapResolver {
             GameMap oreMap = getCompanyMap("1-3", "2-3", "3-3");
             if (oreMap != null && (!enforceBlacklist || !isMapBlacklisted(oreMap))) return oreMap;
         }
-        if (normalized.contains("prometium") || normalized.contains("endurium") || normalized.contains("terbium")) {
-            // Não força mapa X-2 para minérios crus. Eles podem ser coletados de caixas
-            // from_ship em qualquer mapa (ou no mapa preferido de coleta configurado).
-            return null;
+        if (normalized.contains("prometium")) {
+            boolean ignoreCargo = ctx.ignoreCargoForCurrentReq;
+            GameMap currentMap = ctx.heroAPI.getMap();
+            boolean currentMapIsValid = currentMap != null && isLowMap(currentMap.getName());
+            
+            if (ignoreCargo || !currentMapIsValid) {
+                GameMap oreMap = getCompanyMap("1-2", "2-2", "3-2");
+                if (oreMap != null && (!enforceBlacklist || !isMapBlacklisted(oreMap))) return oreMap;
+            } else {
+                return null;
+            }
+        }
+        if (normalized.contains("endurium")) {
+            boolean ignoreCargo = ctx.ignoreCargoForCurrentReq;
+            GameMap currentMap = ctx.heroAPI.getMap();
+            boolean currentMapIsValid = currentMap != null && isLowMap(currentMap.getName());
+            
+            if (ignoreCargo || !currentMapIsValid) {
+                GameMap oreMap = getCompanyMap("1-2", "2-2", "3-2");
+                if (oreMap != null && (!enforceBlacklist || !isMapBlacklisted(oreMap))) return oreMap;
+            } else {
+                return null;
+            }
+        }
+        if (normalized.contains("terbium")) {
+            boolean ignoreCargo = ctx.ignoreCargoForCurrentReq;
+            GameMap currentMap = ctx.heroAPI.getMap();
+            boolean currentMapIsValid = currentMap != null && (currentMap.getName().contains("-3") || currentMap.getName().contains("-4"));
+            
+            if (ignoreCargo || !currentMapIsValid) {
+                GameMap oreMap = getCompanyMap("1-3", "2-3", "3-3");
+                if (oreMap != null && (!enforceBlacklist || !isMapBlacklisted(oreMap))) return oreMap;
+            } else {
+                return null;
+            }
         }
 
         // 2. NPC hardcoded rules
