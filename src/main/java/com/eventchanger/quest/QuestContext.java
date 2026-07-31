@@ -530,4 +530,5 @@ public class QuestContext {
     public SellingHandler sellingHandler;
     public ConfigMarker configMarker;
     public QuestPanel questPanel;
+    public QuestHudCycler questHudCycler;
 }

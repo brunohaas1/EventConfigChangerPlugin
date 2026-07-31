@@ -41,6 +41,7 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
     private final SellingHandler sellingHandler;
     private final ConfigMarker configMarker;
     private final QuestPanel questPanel;
+    private final QuestHudCycler questHudCycler;
 
     public QuestModule(PluginAPI api) {
         this.ctx = new QuestContext(api);
@@ -52,6 +53,7 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         this.sellingHandler = new SellingHandler(ctx, logger, mapResolver);
         this.configMarker = new ConfigMarker(ctx, logger, mapResolver, missionMapLoader, npcBoxMatcher);
         this.questPanel = new QuestPanel(ctx, logger);
+        this.questHudCycler = new QuestHudCycler(ctx, logger, mapResolver);
 
         // Registra os componentes no contexto para acesso cruzado
         ctx.logger = logger;
@@ -62,6 +64,7 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
         ctx.sellingHandler = sellingHandler;
         ctx.configMarker = configMarker;
         ctx.questPanel = questPanel;
+        ctx.questHudCycler = questHudCycler;
 
         // Load external mission->NPC mapping file (optional)
         missionMapLoader.loadExternalMissionMap();
@@ -170,6 +173,15 @@ public class QuestModule implements Module, Behavior, Configurable<QuestConfig>,
 
         // Deliver completed quests instantly via backpage
         deliverCompletedQuests(now);
+
+        // Ciclar quests do HUD via bolinhas para popular cache de requisitos e alternar quests
+        if (questHudCycler != null) {
+            questHudCycler.startCycleIfNeeded(now);
+            if (questHudCycler.tick(now)) {
+                ctx.currentAction = "Ciclando quests no HUD...";
+                return;
+            }
+        }
 
         // 2. Auto-sell when cargo hold is full (prevented during cargo ore quests or timed quests)
         if (ctx.config.loot.autoSellWhenFull && ctx.statsAPI.getCargo() >= ctx.statsAPI.getMaxCargo() && ctx.statsAPI.getMaxCargo() > 0) {
